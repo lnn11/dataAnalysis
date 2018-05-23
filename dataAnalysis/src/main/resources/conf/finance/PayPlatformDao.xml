@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.finance.PayPlatformDao">
+	
+	<!--微信支付 -->
+	<select id="getPayPlatform" resultType="com.zhb.dataAnalysis.common.repository.database.model.PayPlatformModel">
+				select tor.create_time createTime,
+				       tor.order_no_main orderMain,
+				       tor.pay_id payId,
+				       tor.bussinesschannel bussinesschannel,
+				       tor.paysource paySourse,
+				       nvl(sum(tod.pay_cash),0) payCash,
+				       tor.order_source orderSource,
+				       nvl(trc.return_cash,0) returnCash
+				  from t_order tor
+				 inner join t_order_detail tod
+				    on tor.order_no = tod.order_no	
+<!-- 				   and tor.status in (0, 1, 2) -->
+				   and tor.cash > 0.00 
+				   and tor.order_source != '3'
+				   and tor.paysource is not null
+				   <if test="pay.startDate !=null and pay.startDate != ''">
+				   		and tor.create_time &gt;= to_date(#{pay.startDate},'yyyy-mm-dd hh24:mi:ss')
+				   </if> 
+				   <if test="pay.endDate !=null and pay.endDate != ''">
+				   		and tor.create_time &lt;= to_date(#{pay.endDate},'yyyy-mm-dd hh24:mi:ss')
+				   </if>
+				   <if test="pay.orderMains != null and pay.orderMains != ''">
+				   		and tor.order_no_main like '%'||#{pay.orderMains}||'%'
+				   </if>
+				   <if test="pay.payID != null and  pay.payID != ''">
+				   		and tor.pay_id like '%'||#{pay.payID}||'%'
+				   </if>
+				   <if test="pay.paySourse != null and pay.paySourse != ''">
+				   		and tor.paysource = #{pay.paySourse}
+				   </if>
+				   <if test="pay.channel != null and pay.channel != ''">
+					   	<if test="pay.channel == 'aiPinXuan'">
+					   		and tor.order_source in ('1','2','4','6')
+					   	</if>
+					   	<if test="pay.channel != 'aiPinXuan'">
+					   		and tor.bussinesschannel = #{pay.channel}
+					   	</if>
+				   </if>
+				   left join (select nvl(sum(tr.return_cash), 0) return_cash,
+                                   torr.order_no_main
+                              from t_return_cash tr,t_order torr
+                             where tr.return_status = 1 and tr.order_no = torr.order_no
+                             group by torr.order_no_main) trc
+                    on trc.order_no_main = tor.order_no_main
+                          group by tor.create_time,tor.order_no_main,tor.pay_id,tor.bussinesschannel,tor.paysource,tor.order_source,trc.return_cash order by tor.create_time
+	</select>
+	<!--充值 流量 加油卡 微信支付  -->
+	<select id="getPayPlatformCharge" resultType="com.zhb.dataAnalysis.common.repository.database.model.PayPlatformModel">
+		select c.charge_time createTime,c.order_no orderMain,c.serial_no payId,c.charge_source orderSource,c.paysource paySourse,c.pay_amount payCash,0 returnCash
+<!-- 		c.pay_amount*0.006 returnCash,c.pay_amount-c.pay_amount*0.006 cash  -->
+		from t_charge c
+		<where> 1=1 and c.order_status in (0,2)
+			<if test="pay.startDate !=null and pay.startDate != ''">
+		   		and c.charge_time &gt;= to_date(#{pay.startDate},'yyyy-mm-dd hh24:mi:ss')
+		   </if> 
+		   <if test="pay.endDate !=null and pay.endDate != ''">
+		   		and c.charge_time &lt;= to_date(#{pay.endDate},'yyyy-mm-dd hh24:mi:ss')
+		   </if>
+		   <if test="pay.orderMains != null and pay.orderMains != ''">
+		   		and c.order_no like '%'||#{pay.orderMains}||'%'
+		   </if>
+		   <if test="pay.payID != null and  pay.payID != ''">
+		   		and c.serial_no like '%'||#{pay.payID}||'%'
+		   </if>
+		   <if test="pay.channel != null and pay.channel != ''">
+			   	<if test="pay.channel == 'aiPinXuan'">
+			   		and c.CHARGE_SOURCE in ('WX','h5','app')
+			   	</if>
+			   	<if test="pay.channel != 'aiPinXuan'">
+			   		and c.CHARGE_SOURCE = #{pay.channel}
+			   	</if>
+		   </if>
+		   <if test="pay.paySourse != null and pay.paySourse != ''">
+		   		and c.PAYSOURCE = #{pay.paySourse}
+		   </if>
+		</where>
+	</select>
+	
+	<select id="getPayPlatCreateTime" resultType="string">
+		select * from (select create_time from t_order where order_no_main = #{orderMain}) a where rownum &lt;= 1
+	</select>
+</mapper>

@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 订单接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.marketing.SuperMarketDao">
+	<select id="getSuperMarketSPUSKU" resultType="java.util.Map">
+		select count(distinct(tp.product_id)) productCount,count(distinct(tpd.product_detail_id)) productDetailCount from 
+		t_product tp 
+		inner join t_product_detail tpd on tp.product_id = tpd.product_id
+		inner join t_order_detail tod on tpd.product_detail_id = tod.product_detail_id
+		inner join t_order tor on tor.order_no = tod.order_no
+		where 
+		 tod.status in (0,1,2)   
+		and tor.is_delete = 0 
+		and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		<if test="data == '满减'">
+		  	and tod.activity_no = 'ZHB20170523002-2'
+		</if>
+		<if test="data == '满99减5元'">
+		  	and tod.activity_no = 'ZHB20170523002-2'
+		  	 and (tor.total_integral/200) &gt;= 99 and  (tor.total_integral/200) &lt; 199
+		</if>
+		<if test="data == '满199减15元'">
+		  	and tod.activity_no = 'ZHB20170523002-2'
+		  	and (tor.total_integral/200) &gt;= 199 and  (tor.total_integral/200) &lt; 299
+		</if>
+		<if test="data == '满299减25元'">
+		  	and tod.activity_no = 'ZHB20170523002-2'
+		  	and (tor.total_integral/200) &gt;= 299 
+		</if>
+		<if test="data == '秒杀'">
+			and tod.is_seckill = 1
+			and tod.activity_no = #{activityId}
+		</if>
+		<if test="data == '全部'">
+			and tod.activity_no like '%'||#{activityId}||'%'
+		</if>
+		<if test="orderSource != null and orderSource != ''">
+		      and tor.order_source = #{orderSource}
+		</if>
+		<if test="orderSource == ''">
+		      and tor.order_source != '1' and tor.order_source != '2'
+		</if>
+	</select>
+	<select id="getSuperMarketTotal" resultType="java.util.Map">
+		select nvl(sum(tod.buy_num),0) 活动商品总销量,count(distinct(tor.order_no_main)) 活动主订单总数,count(distinct(tod.order_no)) 活动子订单总数,
+	    nvl(sum(tod.pay_cash),0) 现金支付总金额,nvl(sum(tod.pay_points),0) 实际支付总积分,nvl(sum(tod.special_points),0) 福利券支付总积分 from 
+	    t_order tor, t_order_detail tod ,t_product_detail tpd
+	    where  tor.order_no = tod.order_no and tod.product_detail_id = tpd.product_detail_id 
+	    and tod.status in (0,1,2)  
+	    and tor.is_delete = 0      
+	    and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+	    <if test="data == '满减'">
+		  	and tod.activity_no = 'ZHB20170523002-2'
+		</if>
+		<if test="data == '满99减5元'">
+		  	and tod.activity_no = 'ZHB20170523002-2'
+		  	 and (tor.total_integral/200) &gt;= 99 and  (tor.total_integral/200) &lt; 199
+		</if>
+		<if test="data == '满199减15元'">
+		  	and tod.activity_no = 'ZHB20170523002-2'
+		  	and (tor.total_integral/200) &gt;= 199 and  (tor.total_integral/200) &lt; 299
+		</if>
+		<if test="data == '满299减25元'">
+		  	and tod.activity_no = 'ZHB20170523002-2'
+		  	and (tor.total_integral/200) &gt;= 299 
+		</if>
+		<if test="data == '秒杀'">
+			and tod.is_seckill = 1
+			and tod.activity_no = #{activityId}
+		</if>
+		<if test="data == '全部'">
+			and tod.activity_no like '%'||#{activityId}||'%'
+		</if>
+	    <if test="orderSource != null and orderSource != ''">
+	        and tor.order_source = #{orderSource}
+	    </if>
+	    <if test="orderSource == ''">
+	    	and tor.order_source != '1' and tor.order_source != '2'
+	    </if>
+	</select>
+	<select id="getSuperMarketUserTotal" resultType="java.util.Map">
+		select count(distinct(tui.id)) userId from 
+	      t_order tor 
+	      inner join t_order_detail tod on tor.order_no = tod.order_no
+	      inner join t_user_info tui on tor.user_id = tui.id
+	      inner join t_product_detail tpd on tpd.product_detail_id = tod.product_detail_id
+	      where 
+	      tod.status in (0,1,2)  
+	      and tor.is_delete = 0  
+	      and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		  and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')     
+	      <if test="data == '满减'">
+		 		and tod.activity_no = 'ZHB20170523002-2'
+		  </if>
+		  <if test="data == '满99减5元'">
+		  	  and tod.activity_no = 'ZHB20170523002-2'
+		  	  and (tor.total_integral/200) &gt;= 99 and  (tor.total_integral/200) &lt; 199
+		  </if>
+		  <if test="data == '满199减15元'">
+		  	  and tod.activity_no = 'ZHB20170523002-2'
+		  	  and (tor.total_integral/200) &gt;= 199 and  (tor.total_integral/200) &lt; 299
+		  </if>
+		  <if test="data == '满299减25元'">
+		  	  and tod.activity_no = 'ZHB20170523002-2'
+		  	  and (tor.total_integral/200) &gt;= 299 
+		  </if>
+		  <if test="data == '秒杀'">
+			  and tod.is_seckill = 1
+			  and tod.activity_no = #{activityId}
+		  </if>
+		  <if test="data == '全部'">
+			  and tod.activity_no like '%'||#{activityId}||'%'
+		  </if>
+	      <if test="orderSource != null and orderSource != ''">
+	         and tor.order_source = #{orderSource}
+	      </if>
+	      <if test="orderSource == ''">
+	         and tor.order_source != '1' and tor.order_source != '2'
+	      </if>
+	</select>
+	<select id="getSuperMarketUserRepeat" resultType="java.util.Map">
+		select count(countUser) userCount from(
+          select count(tor.user_id) countUser from 
+          t_order tor 
+          inner join t_order_detail tod on tor.order_no = tod.order_no
+          inner join t_user_info tui on tor.user_id = tui.id
+          inner join t_product_detail tpd on tpd.product_detail_id = tod.product_detail_id
+          where 
+          tod.status in (0,1,2) 
+          and tor.is_delete = 0
+          and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		  and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')     
+	      <if test="data == '满减'">
+		 		and tod.activity_no = 'ZHB20170523002-2'
+		  </if>
+		  <if test="data == '满99减5元'">
+		  	  and tod.activity_no = 'ZHB20170523002-2'
+		  	  and (tor.total_integral/200) &gt;= 99 and  (tor.total_integral/200) &lt; 199
+		  </if>
+		  <if test="data == '满199减15元'">
+		  	  and tod.activity_no = 'ZHB20170523002-2'
+		  	  and (tor.total_integral/200) &gt;= 199 and  (tor.total_integral/200) &lt; 299
+		  </if>
+		  <if test="data == '满299减25元'">
+		  	  and tod.activity_no = 'ZHB20170523002-2'
+		  	  and (tor.total_integral/200) &gt;= 299 
+		  </if>
+		  <if test="data == '秒杀'">
+			  and tod.is_seckill = 1
+			  and tod.activity_no = #{activityId}
+		  </if>
+		  <if test="data == '全部'">
+			  and tod.activity_no like '%'||#{activityId}||'%'
+		  </if>
+          <if test="orderSource != null and orderSource != ''">
+              and tor.order_source = #{orderSource}
+          </if>
+          <if test="orderSource == ''">
+              and tor.order_source != '1' and tor.order_source != '2'
+          </if>
+          group by tor.user_id
+       ) a where a.countUser >= 2
+	</select>
+</mapper>

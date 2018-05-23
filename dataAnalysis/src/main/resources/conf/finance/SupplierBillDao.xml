@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 订单接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.finance.SupplierBillDao">
+	
+	<sql id="date">
+	   <if test="supplierBillPrev != null and supplierBillPrev != ''">
+       		and tor.confirm_time &gt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss') 
+       </if>
+       <if test="supplierBillNext != null and supplierBillNext != ''">
+       		and tor.confirm_time &lt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+       </if>
+       <if test="supplierBillPrev == null or supplierBillPrev == ''">
+       		and	tor.confirm_time &gt;= trunc(sysdate,'mm') 
+       </if>
+       <if test="supplierBillNext == null or supplierBillNext == ''">
+       		and tor.confirm_time &lt;= to_date(concat(to_char(trunc(sysdate,'dd'),'yyyy/MM/dd'),' 23:59:59'),'yyyy/MM/dd hh24:mi:ss') 
+       </if>
+	</sql>
+	
+	<!-- 供应商对账单列表查询 -->
+	<select id="getSupplierBillList" resultType="com.zhb.dataAnalysis.common.repository.database.model.SupplierBill">
+		<if test="supplierBillPrev &gt;='2017-07-01 00:00:00' or supplierBillPrev == null or supplierBillPrev == '' or supplierBillNext == null or supplierBillNext == ''">
+			select b.short_name shortName,b.name,sum(b.buy_num) num,b.price,b.activity,(b.price*sum(b.buy_num)) money from(
+	          select distinct tod.order_no,tpd.product_detail_id,tp.name,(tod.buy_num-tod.RETURN_NUM)buy_num ,ts.short_name,
+	            <!--(case when tod.activity_purchase_price is null then tod.purchase_price when tod.activity_purchase_price is not null then tod.activity_purchase_price end) price,-->
+	            case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then tod.ACTIVITY_PURCHASE_PRICE else tod.PURCHASE_PRICE end as price,
+	            (case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then '活动类' else '非活动类' end) activity                     
+	            from t_order tor
+	            inner join t_order_detail tod on tor.order_no=tod.order_no
+	            and tor.create_time &gt;= to_date('2017-07-01 00:00:00','yyyy/MM/dd hh24:mi:ss') 
+<!-- 	 			and tor.examine_status = any(null,0,1,3) -->
+	 			<!-- and (tor.EXAMINE_STATUS is null or tor.EXAMINE_STATUS = 0 or tor.EXAMINE_STATUS = 3) -->
+	 			and tor.order_type = 1 
+	            <if test="data == 1">
+		            and tod.status = #{data}
+		           inner join t_order_company toc on tor.id = toc.order_id
+			       <if test="supplierBillPrev != null and supplierBillPrev != ''">
+			       		and toc.delivery_time &gt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss') 
+			       </if>
+			       <if test="supplierBillNext != null and supplierBillNext != ''">
+			       		and toc.delivery_time &lt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+			       </if>
+	            </if>
+	            <if test="data == 2">
+		            and tod.status = #{data}
+		            <if test="supplierBillPrev != null and supplierBillPrev != ''">
+			       		and tor.confirm_time &gt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss') 
+			        </if>
+			        <if test="supplierBillNext != null and supplierBillNext != ''">
+			       		and tor.confirm_time &lt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+			        </if>
+	            </if>
+	            inner join t_product_detail tpd on tpd.product_detail_id=tod.product_detail_id
+	            inner join t_product tp on tp.product_id=tpd.product_id
+	            inner join t_supplier ts on ts.id=tp.supplier_id
+	       ) b
+	       where 1=1
+	      <if test="shortName!=null and shortName!=''">
+	        and b.short_name like '%'||#{shortName}||'%'
+	       </if>
+	       <if test="activity!=null and activity!=''">
+	        and b.activity = #{activity}
+	       </if>
+	       group by b.short_name,b.name,b.price,b.activity
+	       order by b.name
+	     </if>
+	     <if test="supplierBillPrev &lt; '2017-07-01 00:00:00'">
+	     	select b.short_name shortName,b.name,sum(b.buy_num) num,b.price,b.activity,(b.price*sum(b.buy_num)) money from(
+	          select tod.order_no,tpd.product_detail_id,tp.name,(tod.buy_num-tod.RETURN_NUM)buy_num ,ts.short_name,
+<!-- 	            (case when tod.activity_purchase_price is null then tod.purchase_price when tod.activity_purchase_price is not null then tod.activity_purchase_price end) price, -->
+	            case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then tod.ACTIVITY_PURCHASE_PRICE else tod.PURCHASE_PRICE end as price,
+	            (case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then '活动类' else '非活动类' end) activity                     
+	            from t_order tor
+	            inner join t_order_detail tod on tor.order_no=tod.order_no
+<!-- 	           and tor.create_time &gt;= to_date('2017-07-01 00:00:00','yyyy/MM/dd hh24:mi:ss')   -->
+<!-- 	 			and tor.examine_status = any(null,0,1,3) -->
+<!-- 	 			and (tor.EXAMINE_STATUS is null or tor.EXAMINE_STATUS = 0 or tor.EXAMINE_STATUS = 3) -->
+	 			and tor.order_type = 1 
+	           	<if test="data == 0">
+	           		and tod.status in (1,2)
+	           	</if>
+	           	<if test="data != 0">
+	           		and tod.status = #{data}
+	           	</if>
+	           	<if test="supplierBillPrev != null and supplierBillPrev != ''">
+		       		and tor.create_time &gt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss') 
+		       </if>
+		       <if test="supplierBillNext != null and supplierBillNext != ''">
+		       		and tor.create_time &lt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+		       </if>
+	            inner join t_product_detail tpd on tpd.product_detail_id=tod.product_detail_id
+	            inner join t_product tp on tp.product_id=tpd.product_id
+	            inner join t_supplier ts on ts.id=tp.supplier_id
+	       ) b
+	       where 1=1
+	      <if test="shortName!=null and shortName!=''">
+	        and b.short_name like '%'||#{shortName}||'%'
+	       </if>
+	       <if test="activity!=null and activity!=''">
+	        and b.activity = #{activity}
+	       </if>
+	       group by b.short_name,b.name,b.price,b.activity
+	       order by b.name
+	     </if>
+	</select>
+
+
+
+	<!-- 供应商对账单列表查询 -->
+	<select id="getSupplierBillList2" resultType="com.zhb.dataAnalysis.common.repository.database.model.SupplierBill">
+		<if test="supplierBillPrev &gt;='2017-07-01 00:00:00' or supplierBillPrev == null or supplierBillPrev == '' or supplierBillNext == null or supplierBillNext == ''">
+			select b.short_name shortName,b.name,sum(b.buy_num) num,b.price,b.activity,(b.price*sum(b.buy_num)) money,b.taxTypeCode,b.taxRete,tocd.return_cash returnCash,
+			b.standard,b.psize,b.singlePoints,SUM(tocd.used_cash) usedCash from(
+			select distinct tod.order_no,tpd.product_detail_id,tp.name,(tod.buy_num-tod.RETURN_NUM)buy_num ,ts.short_name,
+			<!--(case when tod.activity_purchase_price is null then tod.purchase_price when tod.activity_purchase_price is not null then tod.activity_purchase_price end) price,-->
+			case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then tod.ACTIVITY_PURCHASE_PRICE else tod.PURCHASE_PRICE end as price,
+			(case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then '活动类' else '非活动类' end) activity,tp.tax_type_code taxTypeCode,tp.tax_rate taxRete,
+			tpd.standard,tpd.psize,tod.exchange_price singlePoints
+			from t_order tor
+			inner join t_order_detail tod on tor.order_no=tod.order_no
+			and tor.create_time &gt;= to_date('2017-07-01 00:00:00','yyyy/MM/dd hh24:mi:ss')
+			<!-- 	 			and tor.examine_status = any(null,0,1,3) -->
+			<!-- and (tor.EXAMINE_STATUS is null or tor.EXAMINE_STATUS = 0 or tor.EXAMINE_STATUS = 3) -->
+			and tor.order_type = 1
+			<if test="data == 1">
+				and tod.status = #{data}
+				inner join t_order_company toc on tor.id = toc.order_id
+				<if test="supplierBillPrev != null and supplierBillPrev != ''">
+					and toc.delivery_time &gt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss')
+				</if>
+				<if test="supplierBillNext != null and supplierBillNext != ''">
+					and toc.delivery_time &lt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+				</if>
+			</if>
+			<if test="data == 2">
+				and tod.status = #{data}
+				<if test="supplierBillPrev != null and supplierBillPrev != ''">
+					and tor.confirm_time &gt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss')
+				</if>
+				<if test="supplierBillNext != null and supplierBillNext != ''">
+					and tor.confirm_time &lt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+				</if>
+			</if>
+			inner join t_product_detail tpd on tpd.product_detail_id=tod.product_detail_id
+			inner join t_product tp on tp.product_id=tpd.product_id
+			inner join t_supplier ts on ts.id=tp.supplier_id
+			) b
+			<if test="isLpk==1">
+				left join (select sum(used_cash) used_cash,sum(return_cash) return_cash,order_no from T_ORDER_CARD_DETAIL group by order_no) tocd
+				on b.order_no = tocd.order_no
+			</if>
+			<if test="isLpk==2">
+				left join (select sum(used_cash) used_cash,sum(return_cash) return_cash,order_no from T_ORDER_CARD_DETAIL group by order_no) tocd
+				on b.order_no = tocd.order_no
+			</if>
+			where 1=1
+			<if test="shortName!=null and shortName!=''">
+				and b.short_name like '%'||#{shortName}||'%'
+			</if>
+			<if test="activity!=null and activity!=''">
+				and b.activity = #{activity}
+			</if>
+			group by b.short_name,b.name,b.price,b.activity,b.taxTypeCode,
+			b.taxRete,tocd.return_Cash,b.standard,b.psize,b.singlePoints
+			order by b.name
+		</if>
+		<if test="supplierBillPrev &lt; '2017-07-01 00:00:00'">
+			select b.short_name shortName,b.name,sum(b.buy_num) num,b.price,b.activity,(b.price*sum(b.buy_num)) money,b.taxTypeCode,b.taxRete,tocd.return_Cash returnCash,
+			b.standard,b.psize,b.singlePoints,SUM(tocd.used_Cash) usedCash from(
+			select tod.order_no,tpd.product_detail_id,tp.name,(tod.buy_num-tod.RETURN_NUM)buy_num ,ts.short_name,
+			<!-- 	            (case when tod.activity_purchase_price is null then tod.purchase_price when tod.activity_purchase_price is not null then tod.activity_purchase_price end) price, -->
+			case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then tod.ACTIVITY_PURCHASE_PRICE else tod.PURCHASE_PRICE end as price,
+			(case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then '活动类' else '非活动类' end) activity,tp.tax_type_code taxTypeCode,tp.tax_rate taxRete,
+			tpd.standard,tpd.psize,tod.exchange_price singlePoints
+			from t_order tor
+			inner join t_order_detail tod on tor.order_no=tod.order_no
+			<!-- 	           and tor.create_time &gt;= to_date('2017-07-01 00:00:00','yyyy/MM/dd hh24:mi:ss')   -->
+			<!-- 	 			and tor.examine_status = any(null,0,1,3) -->
+			<!-- 	 			and (tor.EXAMINE_STATUS is null or tor.EXAMINE_STATUS = 0 or tor.EXAMINE_STATUS = 3) -->
+			and tor.order_type = 1
+			<if test="data == 0">
+				and tod.status in (1,2)
+			</if>
+			<if test="data != 0">
+				and tod.status = #{data}
+			</if>
+			<if test="supplierBillPrev != null and supplierBillPrev != ''">
+				and tor.create_time &gt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss')
+			</if>
+			<if test="supplierBillNext != null and supplierBillNext != ''">
+				and tor.create_time &lt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+			</if>
+			inner join t_product_detail tpd on tpd.product_detail_id=tod.product_detail_id
+			inner join t_product tp on tp.product_id=tpd.product_id
+			inner join t_supplier ts on ts.id=tp.supplier_id
+
+			) b
+			<if test="isLpk==1">
+				left join T_ORDER_CARD_DETAIL tocd on b.order_no = tocd.order_no
+			</if>
+			<if test="isLpk==2">
+				inner join T_ORDER_CARD_DETAIL tocd on b.order_no = tocd.order_no
+			</if>
+			where 1=1
+			<if test="isLpk==1">
+				left join (select sum(used_cash) used_cash,sum(return_cash) return_cash,order_no from T_ORDER_CARD_DETAIL group by order_no) tocd
+				on b.order_no = tocd.order_no
+			</if>
+			<if test="isLpk==2">
+				left join (select sum(used_cash) used_cash,sum(return_cash) return_cash,order_no from T_ORDER_CARD_DETAIL group by order_no) tocd
+				on b.order_no = tocd.order_no
+			</if>
+			group by b.short_name,b.name,b.price,b.activity,b.taxTypeCode,
+			b.taxRete,tocd.return_cash,b.standard,b.psize,b.singlePoints, tocd.used_Cash
+			order by b.name
+		</if>
+	</select>
+
+
+	<select id="getSumReturnCash" resultType="java.lang.Double">
+		select nvl(sum(td.return_cash),0.0) returnCash
+		from
+		t_order_detail d
+		inner join T_ORDER_CARD_DETAIL td on d.order_no=td.order_no
+		where 1=1 and d.status in (3,4)
+		 <!--<if test="activeFlag ==1">-->
+			 <!--and (d.IS_SECKILL = 1 or d.IS_LOWER = 1)-->
+		 <!--</if>-->
+		<!--<if test="activeFlag ==2">-->
+			<!--and (d.IS_SECKILL != 1 or d.IS_LOWER != 1)-->
+		<!--</if>-->
+		and d.create_time &lt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss')
+		and d.create_time &gt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+		and d.return_submit_time &gt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss')
+		and d.return_submit_time &lt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+	</select>
+	<!-- 暂时没用 -->
+	<!-- 供应商条数 -->
+	<select id="getCount" resultType="int">
+		select count(1) from
+			( select b.short_name shortName,b.name,sum(b.buy_num) num,b.price,b.activity,(b.price*sum(b.buy_num)) money from(
+		          select tod.order_no,tpd.product_detail_id,tp.name,(tod.buy_num-tod.RETURN_NUM)buy_num ,ts.short_name,
+		            <!--(case when tod.activity_purchase_price is null then tod.purchase_price when tod.activity_purchase_price is not null then tod.activity_purchase_price end) price,-->
+            		case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then tod.ACTIVITY_PURCHASE_PRICE else tod.PURCHASE_PRICE end as price,
+		            (case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then '活动类' else '非活动类' end) activity
+             		<!-- (case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then '活动类' else '非活动类' end) activity -->
+		            from t_order tor
+		            inner join t_order_detail tod on tor.order_no=tod.order_no 
+<!-- 		            and tor.create_time &gt;= to_date('2017-07-01 00:00:00','yyyy/MM/dd hh24:mi:ss')  -->
+<!-- 				    and tor.examine_status = any(null,0,1,3) -->
+ 					<!-- and (tor.EXAMINE_STATUS is null or tor.EXAMINE_STATUS = 0 or tor.EXAMINE_STATUS = 3) -->
+ 					and tor.order_type = 1 
+		            <if test="data == 1">
+			            and tod.status = #{data}
+			           inner join t_order_company toc on tor.id = toc.order_id
+				       <if test="supplierBillPrev != null and supplierBillPrev != ''">
+				       		and toc.delivery_time &gt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss') 
+				       </if>
+				       <if test="supplierBillNext != null and supplierBillNext != ''">
+				       		and toc.delivery_time &lt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+				       </if>
+			        	
+		            </if>
+		            <if test="data == 2">
+			            and tod.status = #{data}
+			            <if test="supplierBillPrev != null and supplierBillPrev != ''">
+				       		and tor.confirm_time &gt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss') 
+				        </if>
+				        <if test="supplierBillNext != null and supplierBillNext != ''">
+				       		and tor.confirm_time &lt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+				        </if>
+		            </if>
+		            inner join t_product_detail tpd on tpd.product_detail_id=tod.product_detail_id
+		            inner join t_product tp on tp.product_id=tpd.product_id
+		            inner join t_supplier ts on ts.id=tp.supplier_id
+		       ) b
+		       where 1=1
+		       <if test="shortName!=null and shortName!=''">
+		        and b.short_name like '%'||#{shortName}||'%'
+		       </if>
+		       <if test="activity!=null and activity!=''">
+		        and b.activity = #{activity}
+		       </if>
+		       group by b.short_name,b.name,b.price,b.activity order by b.name)
+	</select>
+	
+	<!-- 供应商对账单列表查询分页模糊 -->
+	<select id="getSupplierBillByPage" resultType="com.zhb.dataAnalysis.common.repository.database.model.SupplierBill">
+		select  te.shortName shortName,te.name name,te.num num,te.price price,te.activity activity,te.money money
+			from (select rownum nu, tep.shortName shortName,tep.name name,tep.num num,tep.price price,tep.activity activity,tep.money money 
+				from (
+					 select b.short_name shortName,b.name,sum(b.buy_num) num,b.price,b.activity,(b.price*sum(b.buy_num)) money from(
+			          select tod.order_no,tpd.product_detail_id,tp.name,(tod.buy_num-tod.RETURN_NUM)buy_num ,ts.short_name,
+			            <!--(case when tod.activity_purchase_price is null then tod.purchase_price when tod.activity_purchase_price is not null then tod.activity_purchase_price end) price,-->
+            			case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then tod.ACTIVITY_PURCHASE_PRICE else tod.PURCHASE_PRICE end as price,
+			            (case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then '活动类' else '非活动类' end) activity
+             			<!-- (case when (tod.IS_SECKILL = 1 or tod.IS_LOWER = 1) then '活动类' else '非活动类' end) activity -->
+			            from t_order tor
+			            inner join t_order_detail tod on tor.order_no=tod.order_no 
+<!-- 			            and tor.create_time &gt;= to_date('2017-07-01 00:00:00','yyyy/MM/dd hh24:mi:ss')  -->
+<!-- 					    and tor.examine_status = any(null,0,1,3) -->
+ 						<!-- and (tor.EXAMINE_STATUS is null or tor.EXAMINE_STATUS = 0 or tor.EXAMINE_STATUS = 3) -->
+	 					and tor.order_type = 1 
+						<if test="data == 1">
+				            and tod.status = #{data}
+				           inner join t_order_company toc on tor.id = toc.order_id
+					       <if test="supplierBillPrev != null and supplierBillPrev != ''">
+					       		and toc.delivery_time &gt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss') 
+					       </if>
+					       <if test="supplierBillNext != null and supplierBillNext != ''">
+					       		and toc.delivery_time &lt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+					       </if>
+				        	
+			            </if>
+			            <if test="data == 2">
+				            and tod.status = #{data}
+				            <if test="supplierBillPrev != null and supplierBillPrev != ''">
+					       		and tor.confirm_time &gt;= to_date(#{supplierBillPrev},'yyyy/MM/dd hh24:mi:ss') 
+					        </if>
+					        <if test="supplierBillNext != null and supplierBillNext != ''">
+					       		and tor.confirm_time &lt;= to_date(#{supplierBillNext},'yyyy/MM/dd hh24:mi:ss')
+					        </if>
+			            </if>			            
+			            inner join t_product_detail tpd on tpd.product_detail_id=tod.product_detail_id
+			            inner join t_product tp on tp.product_id=tpd.product_id
+			            inner join t_supplier ts on ts.id=tp.supplier_id
+			       ) b
+			       where 1=1
+			       <if test="shortName!=null and shortName!=''">
+			        and b.short_name like '%'||#{shortName}||'%'
+			       </if>
+			       <if test="activity!=null and activity!=''">
+			        and b.activity = #{activity}
+			       </if>
+			       group by b.short_name,b.name,b.price,b.activity order by b.name
+				) tep 
+			where rownum &lt;= (#{page}*#{rows})
+		) te where te.nu &gt; (#{page}-1)*#{rows}
+	</select>
+</mapper>

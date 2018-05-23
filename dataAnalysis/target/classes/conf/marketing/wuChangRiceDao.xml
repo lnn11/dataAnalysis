@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 订单接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.marketing.WuChangRiceDao">
+	<select id="getChannel" resultType="java.util.Map">
+		select channel_id channelId,channel_name channelName from t_channel
+		where 1=1
+		 <if test="startTime != null and startTime != ''">
+		 	and create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		 </if>
+		 <if test="endTime != null and endTime != ''">
+		 	and create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		 </if>
+	</select>
+	
+	<select id="getChannelCount" resultType="java.math.BigDecimal">
+		select count(1) from t_channel
+		where 1=1
+		 <if test="startTime != null and startTime != ''">
+		 	and create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		 </if>
+		 <if test="endTime != null and endTime != ''">
+		 	and create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		 </if>
+	</select>
+	
+	<select id="getTicketCount" resultType="java.util.Map">
+		select count(1) ticketCount from T_USER_GIFT t
+		inner join t_user_info tui on t.mobile = tui.mobile
+		and t.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		and t.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss') 
+		<if test="data != ''">
+			and tui.bussinesschannel = #{data}
+		</if>
+		and tui.bussinesschannel is not null
+	</select>
+	
+	<select id="getBuyNumPayCash" resultType="java.util.Map">
+		select count(distinct(tor.order_no_main)) buyNum,nvl(sum(tod.pay_cash),0) payCash from t_order tor 
+		inner join t_order_detail tod on tor.order_no = tod.order_no
+		and tod.activity_no = #{activityId}
+		and tor.status in (0,1,2) 
+		and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		<if test="data != ''  and data != '兑换码'">
+			and tor.bussinesschannel = #{data}
+			and tor.bussinesschannel is not null 
+		</if>
+		<if test="data == '兑换码'">
+			and tor.bussinesschannel is null 
+		</if>
+	</select>
+	
+	<select id="getRegisterUser" resultType="java.util.Map">
+		select count(1) registerUser from t_user_info tui
+		where tui.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		and tui.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		and tui.platformsource in (2,4)
+		<if test="data != ''">
+			and tui.bussinesschannel = #{data}
+		</if>
+		and tui.bussinesschannel is not null 
+		<if test="activityId == 'ZHB20170909001' and data != ''">
+			and tui.bussinesschannel = 'ZHB20170909001'
+		</if>
+		<if test="activityId != 'ZHB20170909001'">
+			and bussinesschannel not like '%ZHB2017%'
+		</if>   
+	</select>
+	
+	<select id="getChannelName" resultType="string">
+		select t.channel_name from T_CHANNEL t where t.channel_id = #{data}
+	</select>
+	
+	<select id="getRedeemCode" resultType="java.util.Map">
+		select count(1) ticketCount from T_REDEEM_CODE where type = 3 and mobile is not null 
+	</select>
+	<!-- 获取购买特权数量 -->
+	<select id="getRedeemCodeCount" resultType="java.util.Map">
+		select count(1) ticketCount from t_redeem_code trc,t_user_info tui 
+		where 
+		trc.mobile = tui.mobile 
+		and trc.type = 4
+		and tui.create_time &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		and tui.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		and tui.platformsource in (2,4)
+		and tui.bussinesschannel is not null
+		and tui.bussinesschannel not like '%ZHB2017%'
+		<if test="data != ''">
+			and tui.bussinesschannel = #{data}
+		</if>
+	</select>
+	<!-- 兑换码领取数量 -->
+	<select id="getRedeemCount" resultType="java.util.Map">
+		select count(1) ticketCount from t_redeem_code trc,t_user_info tui 
+		where 
+		trc.mobile = tui.mobile 
+		and trc.type = 4
+		and tui.create_time &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		and tui.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		and tui.platformsource in (2,4)
+		and tui.bussinesschannel is not null
+		and length(trc.id) = 11
+		and tui.bussinesschannel not like '%ZHB2017%'
+		<if test="data != ''">
+			and tui.bussinesschannel = #{data}
+		</if>
+	</select>
+	<!-- 获取优惠券的数据 -->
+	<select id="getCouponUser" resultType="java.util.Map">
+		SELECT COUNT(1) TICKETCOUNT FROM t_user_gift T WHERE T.GIFT_ID = 'v8q3137af2a349d38833b64687821uy4'
+		<if test="status != 0">
+			and t.status = #{status}
+		</if>
+	</select>
+	
+	<!-- 暂时没用 -->
+	<select id="getChannelRice" resultType="java.util.Map">
+		select distinct(tui.bussinesschannel) channelId, tui.bussinesschannel channelName from t_user_info tui
+		where tui.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		and tui.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		and tui.platformsource in (2,4)
+		and tui.bussinesschannel is not null 
+		and bussinesschannel not like '%ZHB2017%'
+	</select>
+</mapper>

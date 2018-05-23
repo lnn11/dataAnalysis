@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 客户服务对账单接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.customerService.AccountStatementDao">
+	
+	<!-- *********************************************有效用户***************************************************** -->
+	<select id="getCustomers" resultType="java.util.Map">
+		SELECT  o.USER_ID AS userId,
+	        o.ORDER_NO_MAIN AS mainOrderNo,
+	        o.ORDER_NO AS subOrderNo,
+	        pd.PRODUCT_ID as productID,
+	        od.PRODUCT_NAME AS productName,
+	        pd.SUPPLIER_ID as supplierID,
+	        od.NORM_INFO AS normInfo,
+	        case when od.activity_sales_price is not null then
+	        od.PAY_POINTS / od.exchange_rate / od.activity_sales_price
+	        else od.PAY_POINTS / od.exchange_rate / od.EXCHANGE_PRICE end
+	         AS num,
+	         case when od.activity_sales_price is not null then
+	          od.activity_sales_price
+	          else od.EXCHANGE_PRICE end
+	           AS sellPrice,
+	        od.EXCHANGE_PRICE AS singlePoint,
+	        od.exchange_rate,
+	        od.PAY_POINTS AS realPayIntegral,
+	        o.status AS status,
+	        od.activity_sales_price as activityPrice,
+	        o.create_time AS createTime
+		FROM t_order o 
+		JOIN t_order_detail od ON od.ORDER_NO=o.ORDER_NO
+		JOIN t_product_detail pd on pd.PRODUCT_DETAIL_ID=od.PRODUCT_DETAIL_ID
+		JOIN(
+		        SELECT DISTINCT o2.USER_ID as userId FROM t_order o2 
+		        WHERE (to_date(to_char(o2.CREATE_TIME,'yyyy-mm-dd hh24:mi:ss'),'yyyy-mm-dd hh24:mi:ss') BETWEEN to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') AND to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss'))
+		    )tmp on tmp.userId =o.USER_ID
+		WHERE (to_date(to_char(o.CREATE_TIME,'yyyy-mm-dd hh24:mi:ss'),'yyyy-mm-dd hh24:mi:ss') &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss'))
+		      AND o.STATUS IN (1,2) AND  od.PAY_POINTS>0 and pd.PRODUCT_ID  = #{productid} and (od.activity_sales_price = #{sellPrice} or od.EXCHANGE_PRICE = #{sellPrice})
+		ORDER BY o.USER_ID,o.CREATE_TIME
+	</select>
+	
+	<!-- *********************************************积分明细***************************************************** -->
+	<select id="getPointsRecord" resultType="java.util.Map">
+		SELECT 
+	       r.POINT AS point,
+	       r.SYSFROM AS sysfrom 
+		FROM t_integral_record r 
+		WHERE r.ACOUNTDATE BETWEEN to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') AND to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss') 
+		       AND r.POINT>0 and r.SYSFROM &lt;&gt; 'XH_ZHB' AND r.USERID=#{userId}
+		       <if test="company != null">and r.SYSFROM  in 
+				<foreach collection="company" index="index" item="item" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			  </if>
+		ORDER BY r.ACOUNTDATE
+	</select>
+	
+	<!-- *********************************************该时间段内的平台***************************************************** -->
+	<select id="getDownOrderUser" resultType="java.lang.String">
+		SELECT     
+           distinct o.user_id 
+      FROM t_order o 
+      JOIN t_order_detail od ON od.ORDER_NO=o.ORDER_NO
+      JOIN t_product_detail pd on pd.PRODUCT_DETAIL_ID=od.PRODUCT_DETAIL_ID 
+      WHERE (to_date(to_char(o.CREATE_TIME,'yyyy-mm-dd hh24:mi:ss'),'yyyy-mm-dd hh24:mi:ss') &gt;= to_date('2017-3-1 00:00:00','yyyy-mm-dd hh24:mi:ss'))
+            AND (to_date(to_char(o.CREATE_TIME,'yyyy-mm-dd hh24:mi:ss'),'yyyy-mm-dd hh24:mi:ss') &lt;= to_date('2017-3-21 00:00:00','yyyy-mm-dd hh24:mi:ss'))
+            AND o.STATUS IN (1,2) AND  od.PAY_POINTS>0 and od.exchange_rate = #{exchangRate} 
+            and od.PRODUCT_NAME = #{productName} and od.SINGLE_POINTS = #{singlePoints}
+	</select>
+	
+	<select id="getMinDate" resultType="java.lang.String">
+		select min(r.ACOUNTDATE) as initDate from t_integral_record r where r.USERID=#{userId}
+	</select>
+	
+	<!-- *********************************************该时间段内下的订单信息***************************************************** -->
+	<select id="getData" resultType="java.util.Map">
+		select 
+			tmp.USER_ID,
+			tmp.PRODUCT_NAME,
+			tmp.SINGLE_POINTS,
+			tmp.PAY_POINTS,
+			tmp.exchange_rate,
+			tmp.create_time,
+			tmp.ORDER_NO_MAIN,
+			tmp.minDate
+		from (
+			SELECT     
+				o.USER_ID,
+	            od.PRODUCT_NAME,
+	            od.SINGLE_POINTS,
+	            od.PAY_POINTS,
+	            od.exchange_rate,
+	            o.create_time,
+	            o.ORDER_NO_MAIN,
+	            (select min(r.ACOUNTDATE) from t_integral_record r where r.USERID=o.USER_ID) minDate
+	      FROM t_order o 
+	      JOIN t_order_detail od ON od.ORDER_NO=o.ORDER_NO
+	      JOIN t_product_detail pd on pd.PRODUCT_DETAIL_ID=od.PRODUCT_DETAIL_ID 
+	      WHERE 
+	      		<if test="startTime != null and startTime != ''">
+	      			o.CREATE_TIME &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') AND
+	      		</if>
+	      		<if test="endTime != null and endTime != ''">
+	      			o.CREATE_TIME &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss') AND
+	      		</if>
+	             o.STATUS IN (1,2) AND  od.PAY_POINTS>0 
+	<!--       group by od.exchange_rate,od.PRODUCT_NAME,od.SINGLE_POINTS,o.USER_ID,od.order_no,od.PAY_POINTS,o.create_time,o.ORDER_NO_MAIN,od.BUY_NUM  -->
+	      order by o.USER_ID,o.CREATE_TIME
+		
+		) tmp where tmp.minDate is not null
+	</select>
+	
+	<select id="getData2" resultType="java.util.Map">
+		SELECT     
+			o.USER_ID,
+            od.PRODUCT_NAME,
+            od.SINGLE_POINTS,
+            od.order_no,
+            od.PAY_POINTS,
+            od.exchange_rate
+            ,o.create_time,
+            o.ORDER_NO_MAIN,
+            od.BUY_NUM   
+      FROM t_order o 
+      JOIN t_order_detail od ON od.ORDER_NO=o.ORDER_NO
+      JOIN t_product_detail pd on pd.PRODUCT_DETAIL_ID=od.PRODUCT_DETAIL_ID 
+      WHERE 
+      		<if test="startTime != null and startTime != ''">
+      			(to_date(to_char(o.CREATE_TIME,'yyyy-mm-dd hh24:mi:ss'),'yyyy-mm-dd hh24:mi:ss') &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')) AND
+      		</if>
+      		<if test="endTime != null and endTime != ''">
+      		 (to_date(to_char(o.CREATE_TIME,'yyyy-mm-dd hh24:mi:ss'),'yyyy-mm-dd hh24:mi:ss') &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')) AND
+      		</if>
+             o.STATUS IN (1,2) AND  od.PAY_POINTS>0 
+      group by od.exchange_rate,od.PRODUCT_NAME,od.SINGLE_POINTS,o.USER_ID,od.order_no,od.PAY_POINTS,o.create_time,o.ORDER_NO_MAIN,od.BUY_NUM  
+      order by o.USER_ID
+	</select>
+	
+</mapper>

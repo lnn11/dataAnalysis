@@ -1,0 +1,109 @@
+html,body {
+    width: 100%;
+    height: 100%;
+    font-size: 18px;
+}
+html,body,div,img {
+    padding: 0;
+    margin: 0;
+}
+body {
+    background-image: url(../images/login_bg.jpg);
+    background-size: 100% 100%;
+    background-repeat:no-repeat;
+}
+.container {
+    width:1200px;
+    height: 100%;
+    margin: 0 auto;
+    /*background-color: pink;*/
+}
+.container nav {
+    width:1200px;
+    height: 25.5%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.container nav img{
+    width:148px;
+    height:70px;
+}
+.container .title {
+    width:1200px;
+    height: 20%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /*background-color: rgba(0,0,0,.2);*/
+}
+.container .title img{
+    width:334px;
+    height:32px;
+}
+.container .login {
+    width:1200px;
+    height: 50%;
+    display: flex;
+    justify-content: center;
+    /*align-items: center;*/
+    /*background-color: rgba(0,0,0,.2);*/
+}
+.container .login form {
+    width: 351px;
+    height: 207px;
+    /*background-color: #f7faf9;*/
+    background-color: rgba(255,255,255,.4);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+}
+.container .login form .loginIdectify img {
+    width: 72px;
+    height: 23px;
+    position: absolute;
+    right: 65px;
+    top:10px;
+}
+.container .login form div {
+    position: relative;
+    line-height: 46px;
+    text-align: center;
+    font-size: 14px;
+}
+.container .login form div i {
+    font-style: normal;
+}
+.container .login form div span {
+    width:18px;
+    height: 18px;
+    position: absolute;
+    left: 35px;
+    top:15px;
+    background-image: url(../images/login_icon_name.png);
+    background-size: 18px 18px;
+}
+.container .login form div:nth-child(2) span{
+    background-image: url(../images/login_icon_password.png);
+}
+.container .login form div:nth-child(32) span{
+    background-image: url(../images/login_icon_identify.png);
+}
+.container .login form input {
+    border: none;
+    border-bottom: 1px solid #d6d6d6;
+    background-color: rgba(255,255,255,0);
+    outline: none;
+}
+.container .login form input[type="submit"] {
+    width: 170px;
+    height: 40px;
+    background-color: #4ca0ff;
+    color: #fff;
+    border: none;
+    border-radius: 19px;
+    line-height: 40px;
+    font-size: 18px;
+    margin-top: 14px;
+    cursor:pointer;
+}

@@ -1,0 +1,393 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 订单接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.marketing.HKMacaoDao">
+	<sql id="date">
+		<if test="startTime != null and startTime != ''">
+       		and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+       </if>
+       <if test="endTime != null and endTime != ''">
+       		and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss') 
+       </if>
+       <if test="startTime == null or startTime == ''">
+       		t.create_time &gt;= to_date('2017-04-25 00:00:00','yyyy-MM-dd hh:mi:ss') 
+       </if>
+       <if test="endTime == null or endTime == ''">
+      		t.create_time &lt;= to_date('2017-05-01 23:59:59','yyyy-MM-dd hh:mi:ss') 
+       </if>
+	</sql>
+	<select id="getActivityList" resultType="com.zhb.dataAnalysis.common.repository.database.model.ActivityModel">
+		  select ta.activity_id activityId, ta.activity_name activityName,ta.status status,ta.start_time startTime,ta.end_time endTime 
+		  from t_activity ta 
+		  where ta.start_time &gt;=to_date('2017/4/19','yyyy-mm-dd') 
+		  and ta.activity_id not in ('ZHB20170519005','ZHB20170523002-2','ZHB20170607001-2','ZHB20170620001-2','ZHB20170001016-2') order by create_time desc
+	</select>
+	
+	<select id="getCount" resultType="int">
+		 select count(1) from t_activity ta where ta.start_time &gt;=to_date('2017/4/19','yyyy-mm-dd') and ta.activity_id not in ('ZHB20170519005','ZHB20170523002-2','ZHB20170607001-2','ZHB20170620001-2','ZHB20170001016-2')
+	</select>
+	
+	<select id="getActivityInfo" resultType="com.zhb.dataAnalysis.common.repository.database.model.ActivityModel">
+		select * from t_activity where activity_id = #{id}
+	</select>
+	
+	<!-- 港澳游销售额 -->
+	<select id="getTravelSales" resultType="java.util.Map">
+		select nvl(sum(tod.pay_cash),0) payCash from t_order_detail tod 
+		inner join t_order tor on tor.order_no=tod.order_no 
+		      and tod.status in (0,1,2)
+		      and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		      and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')  
+		      and tor.cash &gt;= 99.00 
+		      and tor.order_type = 1  
+		      <if test="orderSource == 1">
+		      	and tor.order_source = '1'
+		      </if>
+		      <if test="orderSource == 2">
+		      	and tor.order_source = '2'
+		      </if>
+		      <if test="orderSource == ''">
+		      	 and tor.order_source != '1' and tor.order_source !='2'
+		      </if>		
+		inner join t_user_info tui on tui.id = tor.user_id  
+	</select>
+	
+	<!-- 活动销售SPU SKU 种类总数 -->
+	<select id="getTravelSaleSPUCount" resultType="java.util.Map">
+		select count(distinct(tp.product_id)) productCount,count(distinct(tpd.product_detail_id)) productDetailCount from t_product tp
+		inner join t_product_detail tpd on tp.product_id=tpd.product_id 
+		inner join t_order_detail tod on tod.product_detail_id=tpd.product_detail_id 
+		       and tod.status in (0,1,2) 
+		       and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		       and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss') 
+		inner join t_order tor on tod.order_no=tor.order_no 
+		       and tor.order_type = 1
+		       <if test="orderSource == 1">
+		      	 and tor.order_source = '1'
+		       </if>
+		       <if test="orderSource == 2">
+		      	 and tor.order_source = '2'
+		       </if>
+		       <if test="orderSource == ''">
+		      	 and tor.order_source != '1' and tor.order_source !='2'
+		       </if>
+		inner join t_user_info tui on tui.id = tor.user_id
+	</select>
+	
+	<!-- 活动商品总销量  活动期间，满99、199、299的销售子商品总销量 -->
+	<select id="getTravelProductCount" resultType="java.util.Map">
+		select nvl(sum(tod.buy_num),0) buyNum from t_order_detail tod 
+		inner join t_order tor on tor.order_no = tod.order_no 
+		       and tod.status in (0,1,2) 
+		       and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		       and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss') 
+		       and tor.cash &gt;= 99.00 
+		       and tor.order_type = 1
+		        <if test="orderSource == 1">
+			      	and tor.order_source = '1'
+		        </if>
+		        <if test="orderSource == 2">
+		      	  and tor.order_source = '2'
+		        </if>
+		        <if test="orderSource == ''">
+		      	   and tor.order_source != '1' and tor.order_source !='2'
+		        </if>
+		inner join t_product_detail tpd on tod.product_detail_id = tpd.product_detail_id 
+		inner join t_user_info tui on tui.id = tor.user_id
+	</select>
+	
+	<!-- 现金满额销售额   活动期间，满99、199、299且使用购卡权限的销售额（订单总额） -->
+	<select id="getTravelSalesCash" resultType="java.util.Map">
+		select nvl(sum(tod.pay_cash),0) payCash from t_order_detail tod
+		inner join t_order tor on tor.order_no=tod.order_no 
+		      and tod.status in (0,1,2)
+		      and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		      and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')  
+		      and tor.cash &gt;= 99.00 
+		      and tor.order_type = 1
+		       <if test="orderSource == 1">
+			      	and tor.order_source = '1'
+		        </if>
+		        <if test="orderSource == 2">
+		      	  and tor.order_source = '2'
+		        </if>
+		        <if test="orderSource == ''">
+		      	   and tor.order_source != '1' and tor.order_source !='2'
+		        </if>
+		inner join t_tourism_times tt on tor.order_no_main = tt.order_no_main 
+		      and tt.use_times &gt; 0
+		inner join t_user_info tui on tui.id = tor.user_id
+	</select>
+	
+	<!-- 现金满额销售SPU SKU种类总数  活动期间，满99、199、299且使用购卡权限的销售SPU种类总数 -->
+	<select id="getTravelSaleSPUCash" resultType="java.util.Map">
+		select count(distinct(tp.product_id)) productCount,count(distinct(tpd.product_detail_id)) productDetailCount from t_product tp
+		inner join t_product_detail tpd on tp.product_id= tpd.product_id
+		inner join t_order_detail tod on tpd.product_detail_id = tod.product_detail_id 
+		      and tod.status in (0,1,2) 
+		      and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		      and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		inner join t_order tor on tod.order_no = tor.order_no 
+		      and tor.cash &gt;= 99.00 
+		      and tor.order_type = 1
+		       <if test="orderSource == 1">
+			      	and tor.order_source = '1'
+		        </if>
+		        <if test="orderSource == 2">
+		      	  and tor.order_source = '2'
+		        </if>
+		        <if test="orderSource == ''">
+		      	   and tor.order_source != '1' and tor.order_source !='2'
+		        </if>
+		inner join t_tourism_times tt on tt.order_no_main = tor.order_no_main 
+		      and tt.use_times &gt; 0
+		inner join t_user_info tui on tui.id = tor.user_id
+	</select>
+	
+	<!-- 现金满额总销量  活动期间，满99、199、299且使用购卡权限的的销售子商品总销量 -->
+	<select id="getTravelSaleCash" resultType="java.util.Map">
+		select nvl(sum(tod.buy_num),0) buyNum from t_order_detail tod 
+		inner join t_order tor on tor.order_no = tod.order_no 
+		       and tod.status in (0,1,2) 
+		       and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		       and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss') 
+		       and tor.cash &gt;= 99.00 
+		       and tor.order_type = 1
+		       <if test="orderSource == 1">
+			      	and tor.order_source = '1'
+		        </if>
+		        <if test="orderSource == 2">
+		      	  and tor.order_source = '2'
+		        </if>
+		        <if test="orderSource == ''">
+		      	   and tor.order_source != '1' and tor.order_source !='2'
+		        </if>
+		inner join t_tourism_times tt on tt.order_no_main = tor.order_no_main 
+		       and tt.use_times &gt; 0
+		inner join t_product_detail tpd on tod.product_detail_id = tpd.product_detail_id 
+		inner join t_user_info tui on tui.id = tor.user_id
+	</select>
+	
+	<!-- 活动订单总数    活动期间，满99、199、299的活动主订单总数 -->
+	<select id="getTravelOrderMainCount" resultType="java.util.Map">
+		select count(distinct(tor.order_no_main)) orderNoMain from t_order tor
+		inner join t_order_detail tod on tor.order_no = tod.order_no 
+		      and tor.status in (0,1,2) 
+		      and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		      and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		      and tor.cash &gt;= 99.00 
+		      and tor.order_type = 1
+		      <if test="orderSource == 1">
+			      	and tor.order_source = '1'
+		        </if>
+		        <if test="orderSource == 2">
+		      	  and tor.order_source = '2'
+		        </if>
+		        <if test="orderSource == ''">
+		      	   and tor.order_source != '1' and tor.order_source !='2'
+		        </if>
+		inner join t_user_info tui on tor.user_id = tui.id
+	</select>
+	
+	<!-- 活动子订单总数  活动期间，满99、199、299的活动子订单总数 -->
+	<select id="getTravelOrderCount" resultType="java.util.Map">
+		select count(distinct(tod.order_no)) orderNo  from t_order tor
+		inner join t_order_detail tod on tor.order_no = tod.order_no 
+		      and tod.status in (0,1,2) 
+		      and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')         
+		      and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		      and tor.cash &gt;= 99.00 
+		      and tor.order_type = 1
+		      <if test="orderSource == 1">
+			      	and tor.order_source = '1'
+		        </if>
+		        <if test="orderSource == 2">
+		      	  and tor.order_source = '2'
+		        </if>
+		        <if test="orderSource == ''">
+		      	   and tor.order_source != '1' and tor.order_source !='2'
+		        </if>
+		inner join t_user_info tui on tor.user_id = tui.id
+	</select>
+	
+	<!-- 现金满额订单总数   活动期间，满99、199、299且使用购卡权限主订单总数 -->
+	<select id="getTravelOrderMainCash" resultType="java.util.Map">
+		select count(distinct(tor.order_no_main)) orderNoMain  from t_order tor
+		inner join t_order_detail tod on tor.order_no = tod.order_no 
+		      and tor.status in (0,1,2) 
+		      and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		      and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		      and tor.cash &gt;= 99.00 
+		      and tor.order_type = 1
+		      <if test="orderSource == 1">
+			      	and tor.order_source = '1'
+		        </if>
+		        <if test="orderSource == 2">
+		      	  and tor.order_source = '2'
+		        </if>
+		        <if test="orderSource == ''">
+		      	   and tor.order_source != '1' and tor.order_source !='2'
+		        </if>
+		inner join t_tourism_times tt on tt.order_no_main = tor.order_no_main 
+		      and tt.use_times &gt; 0
+		inner join t_user_info tui on tor.user_id = tui.id
+	</select>
+	
+	<!-- 现金满额子订单总数   活动期间，满99、199、299且使用购卡权限子订单总数 -->
+	<select id="getTravelOrderCash" resultType="java.util.Map">
+		select count(distinct(tod.order_no)) orderNo  from t_order tor
+		inner join t_order_detail tod on tor.order_no = tod.order_no 
+		      and tod.status in (0,1,2) 
+		      and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		      and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		      and tor.cash &gt;= 99.00 
+		      and tor.order_type = 1
+		      <if test="orderSource == 1">
+			      	and tor.order_source = '1'
+		        </if>
+		        <if test="orderSource == 2">
+		      	  and tor.order_source = '2'
+		        </if>
+		        <if test="orderSource == ''">
+		      	   and tor.order_source != '1' and tor.order_source !='2'
+		        </if>
+		inner join t_tourism_times tt on tt.order_no_main = tor.order_no_main 
+		      and tt.use_times &gt; 0
+		inner join t_user_info tui on tor.user_id = tui.id
+	</select>
+	
+	<!-- 活动参与总人数  活动期间，参加99、199、299满额活动的总人数 -->
+	<select id="getTravelUserCount" resultType="java.util.Map">
+	select count(distinct(tor.user_id)) userId from t_order tor
+	inner join t_order_detail tod on tod.order_no = tor.order_no
+	      and tor.status in (0,1,2)
+	      and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+	      and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+	      and tor.cash &gt;= 99.00
+	      and tor.order_type = 1
+	      <if test="orderSource == 1">
+	      	and tor.order_source = '1'
+         </if>
+         <if test="orderSource == 2">
+      	   and tor.order_source = '2'
+         </if>
+         <if test="orderSource == ''">
+      	    and tor.order_source != '1' and tor.order_source !='2'
+         </if>
+	inner join t_user_info tui on tor.user_id = tui.id
+	</select>
+	
+	<!-- 重复参与人数  参与活动两次以上的人，去重数据 -->
+	<select id="getTravelRepeUserCount" resultType="java.util.Map">
+	select count(num) userCount from(
+	    select count(tor.user_id) num from t_order tor
+	    inner join t_order_detail tod on tod.order_no = tor.order_no
+	          and tor.status in (0,1,2)
+	          and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+	          and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+	          and tor.cash &gt;= 99.00
+	          and tor.order_type = 1
+	          <if test="orderSource == 1">
+		      	and tor.order_source = '1'
+	         </if>
+	         <if test="orderSource == 2">
+	      	   and tor.order_source = '2'
+	         </if>
+	         <if test="orderSource == ''">
+	      	    and tor.order_source != '1' and tor.order_source !='2'
+	         </if>
+	    inner join t_user_info tui on tor.user_id = tui.id
+	    group by tor.user_id
+	) a where a.num &gt;= 2
+	</select>
+	<!-- 新增会员数  活动期间新增的会员人数 -->
+	<select id="getTravelNewUserCount" resultType="java.util.Map">
+	select count(tui.id) tuiId from t_user_info tui
+	where tui.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+	and tui.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+	</select>
+	
+	<!-- 支付数据查询 -->
+	
+	<!-- 现金支付总金额 -->
+	<select id="getPayTotal" resultType="java.util.Map">
+		select nvl(sum(od.pay_cash),0) payCash
+		from t_order_detail od
+		inner join t_order o on o.order_no = od.order_no
+		<if test="orderSource != null">
+			and o.order_source = #{orderSource}
+		</if>
+		<if test="orderSource != null and orderSource == ''">
+			and o.order_source not in ('1','2')
+		</if>
+		where o.paytype = 3
+		and o.is_delete = 0
+		and o.order_type = 1
+		and o.cash &gt;= 99
+		and od.status in (0,1,2)
+		and o.create_time &gt;= to_date(#{startTime},'yyyy/MM/dd hh24:mi:ss') 
+		and o.create_time &lt;= to_date(#{endTime},'yyyy/MM/dd hh24:mi:ss')
+	</select>
+	
+	<!-- 现金满额现金支付总金额 -->
+	<select id="getBuyCardPayTotal" resultType="java.util.Map">
+		select nvl(sum(od.pay_cash),0) payCash
+		from t_order_detail od
+		inner join t_order o on od.order_no = o.order_no
+		<if test="orderSource != null">
+			and o.order_source = #{orderSource}
+		</if>
+		<if test="orderSource != null and orderSource == ''">
+			and o.order_source not in ('1','2')
+		</if>
+		inner join t_tourism_times tt on tt.user_id = o.user_id and tt.use_times >= 1
+		where o.paytype = 3
+		and o.is_delete = 0
+		and o.order_type = 1
+		and od.status in (0,1,2)
+		and o.cash >=99
+		and o.create_time &gt;= to_date(#{startTime},'yyyy/MM/dd hh24:mi:ss') 
+		and o.create_time &lt;= to_date(#{endTime},'yyyy/MM/dd hh24:mi:ss')
+	</select>
+	
+	<!-- [实际支付总积分] [福利券支付总积分] -->
+	<select id="getActualPayTotalPoint" resultType="java.util.Map">
+		select nvl(sum(od.pay_points ),0) payPoints,nvl(sum(od.special_points ),0) specialPoints
+		from t_order_detail od
+		inner join t_order o on od.order_no = o.order_no
+		<if test="orderSource != null">
+			and o.order_source = #{orderSource}
+		</if>
+		<if test="orderSource != null and orderSource == ''">
+			and o.order_source not in ('1','2')
+		</if>
+		where o.is_delete = 0
+		and o.order_type = 1
+		and od.status in (0,1,2)
+		and o.cash >=99
+		and o.create_time &gt;= to_date(#{startTime},'yyyy/MM/dd hh24:mi:ss') 
+		and o.create_time &lt;= to_date(#{endTime},'yyyy/MM/dd hh24:mi:ss')
+	</select>
+	
+	<!-- [现金满额实际支付总积分] [现金满额褔利券支付总积分] -->
+	<select id="getBuyCardPayTotalPoint" resultType="java.util.Map">
+		select nvl(sum(od.pay_points),0) payPoints,nvl(sum(od.special_points),0) specialPoints 
+		from t_order_detail od
+		inner join t_order o on od.order_no = o.order_no
+		<if test="orderSource != null">
+			and o.order_source = #{orderSource}
+		</if>
+		<if test="orderSource != null and orderSource == ''">
+			and o.order_source not in ('1','2')
+		</if>
+		inner join t_tourism_times tt on tt.user_id = o.user_id and tt.use_times >= 1
+		where o.is_delete = 0
+		and o.order_type = 1
+		and od.status in (0,1,2)
+		and o.cash >= 99
+		and o.create_time &gt;= to_date(#{startTime},'yyyy/MM/dd hh24:mi:ss') 
+		and o.create_time &lt;= to_date(#{endTime},'yyyy/MM/dd hh24:mi:ss')
+	</select>	
+</mapper>

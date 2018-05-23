@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 用户接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.userInfo.UserInfoDao">
+	
+	<sql id="times">
+		<if test="startTime != null and startTime != ''">
+       		t.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') and 
+       </if>
+       <if test="overTime != null and overTime != ''">
+       		t.create_time &lt;= to_date(#{overTime},'yyyy-mm-dd hh24:mi:ss') 
+       </if>
+       <if test="startTime == null or startTime == ''">
+       		t.create_time &gt;= trunc(sysdate,'mm') and 
+       </if>
+       <if test="overTime == null or overTime == ''">
+      		t.create_time &lt;= to_date(concat(to_char(trunc(sysdate,'dd'),'yyyy-mm-dd'),' 23:59:59'),'yyyy-mm-dd hh24:mi:ss')
+       </if>
+	</sql>
+	
+	<!-- 会员总数 -->
+	<select id = "memberCount" resultType = "int">
+		select count(distinct id) from t_user_info t where 
+		<if test="identifi == 0">
+			t.origin = 0 and 
+		</if>
+		<if test="identifi == 1">
+			t.origin = 1 and 
+		</if>
+		<if test="identifi == 2">
+			t.identify_status = 1 and
+		</if>
+		<if test="identifi == 3">
+			1 = 1 and
+		</if>
+		<include refid="times"></include>
+	</select>
+</mapper>

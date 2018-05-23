@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 供应商接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.supplier.SupplierDao">
+	
+		<!-- *********************************************各供应商销量分析***************************************************** -->
+	<sql id="times">
+	   <if test="startTime != null and startTime != ''">
+       		and tr.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+       </if>
+       <if test="overTime != null and overTime != ''">
+       		and tr.create_time &lt;= to_date(#{overTime},'yyyy-mm-dd hh24:mi:ss')
+       </if>
+       <if test="startTime == null or startTime == '' and overTime == null or overTime == ''">
+       		and tr.create_time &gt;= trunc(sysdate,'mm')
+       		and tr.create_time &lt;= to_date(concat(to_char(trunc(sysdate,'dd'),'yyyy-mm-dd'),' 23:59:59'),'yyyy-mm-dd hh24:mi:ss')
+       </if>
+	</sql>
+	
+	<!-- 查询各供应商销量之和 -->
+	<select id="getSupplierSalesNum" resultType="java.util.Map">
+		select tmp.* from 
+			(select rownum nu,tm.* from (select 
+       			t.short_name name,sum(tod.buy_num) sumnum
+			 from t_order tr 
+       			inner join t_order_detail tod on tod.order_no = tr.order_no 
+       			and tr.status in (0,1,2) <include refid="times"></include>
+       			inner join t_user_info u on tr.user_id = u.id 
+       			inner join T_PRODUCT_DETAIL pd on tod.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID 
+       			inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+                inner join t_supplier t on  t.status = 3 and p.supplier_id = t.id 
+               group by 
+              t.short_name,t.id order by sumnum)tm where tm.sumnum &gt; 0) tmp 
+       where 1 = 1 
+       		<if test="currentPage != null and currentPage != '' and pageSize != null and pageSize != ''">
+	       		and tmp.nu &gt; (#{currentPage}-1)*#{pageSize} and
+	       		tmp.nu &lt;= (#{pageSize}*#{currentPage})
+       		</if>
+	</select>
+	
+	<!-- 查询各供应商销量之和数据总条数 -->
+	<select id="getSupplierCount" resultType="int">
+		select count(*) from(
+			select 
+       			t.short_name,sum(tod.buy_num) sumnum
+			 from t_order tr 
+			 	inner join t_order_detail tod on tod.order_no = tr.order_no 
+       			and tr.status in (0,1,2) <include refid="times"></include> 
+       			inner join t_user_info u on tr.user_id = u.id 
+       			inner join T_PRODUCT_DETAIL pd on tod.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID 
+       			inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+                inner join t_supplier t on  t.status = 3 and p.supplier_id = t.id 
+               group by 
+              t.short_name,t.id order by sumnum
+		) tm where tm.sumnum &gt; 0
+	</select>
+	
+	<!-- 汇总某个时间段内所有供应商销量之和 -->
+	<select id="getAllSupplierSumSales" resultType="int">
+		select nvl(sum(sumnum),0) from (
+			select t.short_name,sum(tod.buy_num) sumnum from t_order tr 
+				inner join t_order_detail tod on tod.order_no = tr.order_no 
+				and tr.status in (0,1,2) <include refid="times"></include>
+       			inner join t_user_info u on tr.user_id = u.id 
+       			inner join T_PRODUCT_DETAIL pd on tod.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID 
+       			inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+                inner join t_supplier t on  t.status = 3 and p.supplier_id = t.id 
+               group by 
+              t.short_name,t.id order by sumnum)tm
+	</select>
+	
+	<!-- *****************************************************各供应商销售额分析**************************************************** -->
+	<!-- 汇总各供应商在某个时间段内的销售额之和 -->
+	<select id="getSupplierSalesVoles" resultType="java.util.Map">
+		select tmp.* from (select tm.*,rownum rn from 
+      		(select 
+      			round(nvl(sum((tod.single_points / tod.exchange_rate)*tod.buy_num),0),2) sumMoney,t.short_name name 
+      		from t_order tr 
+      			inner join t_order_detail tod on tod.order_no = tr.order_no 
+      			and tr.status in (0,1,2) <include refid="times"></include> 
+       			inner join t_user_info u on tr.user_id = u.id 
+       			inner join T_PRODUCT_DETAIL pd on tod.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID 
+       			inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+                inner join t_supplier t on  t.status = 3 and p.supplier_id = t.id 
+               group by 
+              t.short_name,t.id order by sumMoney)tm where tm.sumMoney &gt; 0
+         ) tmp 
+         where 1 = 1
+         	<if test="currentPage != null and currentPage != '' and pageSize != null and pageSize != '' and currentPage != 0 and pageSize != 0">
+	       		and tmp.rn &gt; (#{currentPage}-1)*#{pageSize} and
+	       		tmp.rn &lt;= (#{pageSize}*#{currentPage})
+       		</if>
+	</select>
+	
+	<!-- 汇总所有供应商在某个时间段内的销售额之和 -->
+	<!--默认为零  -->
+	<select id="getAllSupplierSalesVolues" resultType="double">
+		select nvl(round(sum(sumMoney),2),0.00) from
+      		(select round(nvl(sum((tod.single_points / tod.exchange_rate)*tod.buy_num),0),2) sumMoney,t.short_name name from 
+       			t_order tr 
+       			inner join t_order_detail tod on tod.order_no = tr.order_no 
+       			and tr.status in (0,1,2) <include refid="times"></include>
+       			inner join t_user_info u on tr.user_id = u.id
+				inner join T_PRODUCT_DETAIL pd on tod.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID 
+				inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+                inner join t_supplier t on  t.status = 3 and p.supplier_id = t.id 
+               group by 
+              t.short_name,t.id order by sumMoney) tm
+	</select>
+	
+	<!-- 汇总各供应商销售额之和数据条数 -->
+	<select id="getSupplierSalesCount" resultType="int">
+		select count(*) from 
+      		(select round(nvl(sum((tod.single_points / tod.exchange_rate)*tod.buy_num),0),2) sumMoney,t.short_name from 
+       			t_order tr 
+       			inner join t_order_detail tod on tod.order_no = tr.order_no 
+       			and tr.status in (0,1,2) <include refid="times"></include>
+       			inner join t_user_info u on tr.user_id = u.id 
+       			inner join T_PRODUCT_DETAIL pd on tod.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID 
+       			inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+                inner join t_supplier t on  t.status = 3 and p.supplier_id = t.id 
+               group by 
+              t.short_name,t.id order by sumMoney) tm where tm.sumMoney &gt; 0
+	</select>
+	
+	<!-- ********************************************** 各供应商发货速度查询   ************************************************* -->
+	<sql id="ziduan">
+		<if test="workingDayNum == 1">
+        	and torders.unsendalerted &lt;= 1  
+        </if>
+        <if test="workingDayNum == 2">
+        	and torders.unsendalerted &gt; 1 
+        	and torders.unsendalerted &lt;= #{workingDayNum}  
+        </if>
+        <if test="workingDayNum == 3">
+        	and torders.unsendalerted &gt; 2 
+        	and torders.unsendalerted &lt;= #{workingDayNum} 
+        </if>
+        <if test="workingDayNum == 4">
+        	and torders.unsendalerted &gt; 3 
+        </if>
+        <if test="startTime != null and startTime != ''">
+       		and torders.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+        </if>
+        <if test="overTime != null and overTime != ''">
+       		and torders.create_time &lt;= to_date(#{overTime},'yyyy-mm-dd hh24:mi:ss')
+        </if>        
+	</sql>
+	<!-- 查询相应发货时段内各供应商销售额之和以及订单总数 -->
+	<select id="getSupplierDeliverGoodsSpeed" resultType="java.util.Map">
+		select 
+			tst.id,tst.name,tst.sumMoney,tst.orderNum
+		 from (
+			select 
+			tsupr.id,tsupr.short_name name,tsupr.sumMoney,tsupr.orderNum,
+			rownum rn 
+		from 
+			(select 
+			      s.id,s.short_name,nvl(sum((d.single_points/d.exchange_rate)*d.buy_num),0) sumMoney,count(distinct d.order_no) orderNum
+			    from 
+			     t_order torders
+			 inner join T_ORDER_ADDRESS a on torders.ID = a.ORDER_ID
+			 inner join T_ORDER_DETAIL d on torders.ORDER_NO = d.ORDER_NO 
+			 <include refid="ziduan"></include> 
+			 inner join T_PRODUCT_DETAIL pd on d.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID
+			 inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID
+			 inner join T_USER_INFO u on torders.USER_ID = u.ID
+			 right join T_SUPPLIER s on p.SUPPLIER_ID = s.ID and s.status = 3
+			 left join T_ORDER_INVOICE i on torders.ORDER_NO_MAIN = i.ORDER_NO_MAIN
+			    group by 
+			          s.short_name,s.id order by s.short_name) tsupr 
+		) tst 
+		where 1=1 
+			<if test="pageSize != null and pageSize != '' and currentPage != null and currentPage != '' and currentPage != 0 and pageSize != 0">                                                                                                                                           
+			       	and	tst.rn &gt; (#{currentPage}-1)*#{pageSize} and 
+              tst.rn &lt;= (#{pageSize}*#{currentPage})
+     		  </if> 
+	</select>
+	
+	<!-- 统计时段内有订单的供应商数据总条数 -->
+	<select id="getSupplierDeliverGoodsSpeedCount" resultType="int">
+		select 
+			count(1) 
+		from 
+			(select 
+			      s.id,s.short_name,nvl(sum((d.single_points/d.exchange_rate)*d.buy_num),0) sumMoney,count(distinct d.order_no) orderNum
+			    from 
+			     t_order tr
+			 inner join T_ORDER_ADDRESS a on tr.ID = a.ORDER_ID <include refid="times"></include>
+			 inner join T_ORDER_DETAIL d on tr.ORDER_NO = d.ORDER_NO  
+			 inner join T_PRODUCT_DETAIL pd on d.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID
+			 inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID
+			 inner join T_USER_INFO u on tr.USER_ID = u.ID
+			 right join T_SUPPLIER s on p.SUPPLIER_ID = s.ID and s.status = 3
+			 left join T_ORDER_INVOICE i on tr.ORDER_NO_MAIN = i.ORDER_NO_MAIN
+			    group by 
+			          s.short_name,s.id) tsupr 
+	</select>
+	
+	<!-- 审核通过的供应商总数 -->
+	<select id="getSupplierCountNum" resultType="int">
+		select nvl(count(distinct tr.id),0) from t_supplier tr where 1=1<include refid="times"></include> and tr.status = 3
+	</select>
+</mapper>

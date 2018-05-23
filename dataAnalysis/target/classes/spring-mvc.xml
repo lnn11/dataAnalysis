@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context-4.0.xsd
+	http://www.springframework.org/schema/mvc
+	http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd">
+
+	<bean id="propertyConfigurer" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>/WEB-INF/dataAnalysis-properties.properties</value>
+			</list>
+		</property>
+	</bean>
+	
+	<!-- 注解驱动 -->
+	<mvc:annotation-driven>
+		<mvc:message-converters register-defaults="true">
+			<bean class="org.springframework.http.converter.StringHttpMessageConverter"/>
+			<bean class="org.springframework.http.converter.ByteArrayHttpMessageConverter" />
+			<bean class="org.springframework.http.converter.FormHttpMessageConverter" />
+			<bean class="org.springframework.http.converter.xml.SourceHttpMessageConverter" />
+			<bean class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter">
+				<property name="supportedMediaTypes">
+					<list>
+						<value>text/html;charset=UTF-8</value>
+					</list>
+				</property>
+			</bean>
+		</mvc:message-converters>
+	</mvc:annotation-driven>
+	<!-- 组件扫描 -->
+	<context:component-scan base-package="com.zhb.dataAnalysis.controller" />
+
+	<!-- shiro annotation -->
+	<bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor"/>
+	
+	<bean class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator" depends-on="lifecycleBeanPostProcessor"/>
+    
+    <bean class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+   		<property name="securityManager" ref="securityManager"/>
+	</bean>
+
+	<!-- 视图分析 -->
+	<bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<property name="viewClass" value="org.springframework.web.servlet.view.JstlView" />
+		<property name="prefix" value="/WEB-INF/views/" />
+		<property name="suffix" value=".jsp" />
+		<!-- redirectHttp10Compatible:解决https环境下使用redirect重定向地址变为http的协议，无法访问服务的问题
+                   设置为false
+ -->
+		<property name="redirectHttp10Compatible" value="false" />
+	</bean>
+	<!-- 配置相关路径 -->
+	<mvc:view-controller path="/aiPinXuan/logout" view-name="aiPinXuan/logout" />
+	<mvc:view-controller path="/aiPinXuan/top" view-name="aiPinXuan/top" />
+	<mvc:view-controller path="/aiPinXuan/left/zong" view-name="aiPinXuan/left/zong" />
+	<mvc:view-controller path="/aiPinXuan/left/comm" view-name="aiPinXuan/left/comm" />
+	<mvc:view-controller path="/aiPinXuan/center/commodity/provider/xiao" view-name="aiPinXuan/center/commodity/provider/xiao" />
+	<mvc:view-controller path="/aiPinXuan/center/commodity/provider/sale" view-name="aiPinXuan/center/commodity/provider/sale" />
+	<mvc:view-controller path="/aiPinXuan/center/commodity/provider/speed" view-name="aiPinXuan/center/commodity/provider/speed" />
+	<mvc:view-controller path="/aiPinXuan/center/commodity/commodity/sellRaking" view-name="aiPinXuan/center/commodity/commodity/sellRaking" />
+	<mvc:view-controller path="/aiPinXuan/center/commodity/commodity/propSKU" view-name="aiPinXuan/center/commodity/commodity/propSKU" />
+	<mvc:view-controller path="/aiPinXuan/center/commodity/commodity/sellSku" view-name="aiPinXuan/center/commodity/commodity/sellSKU" />
+	<mvc:view-controller path="/aiPinXuan/center/commodity/order/ordersTotal" view-name="aiPinXuan/center/commodity/order/ordersTotal" />
+	<mvc:view-controller path="/aiPinXuan/center/commodity/order/orderSupplier" view-name="aiPinXuan/center/commodity/order/orderSupplier" />
+	<mvc:view-controller path="/aiPinXuan/center/totality/flat/flat" view-name="aiPinXuan/center/totality/flat/flat" />
+	<mvc:view-controller path="/aiPinXuan/authority/left/authority" view-name="aiPinXuan/authority/left/authority" />
+	<mvc:view-controller path="/aiPinXuan/authority/center/userManarger" view-name="aiPinXuan/authority/center/userManarger" />
+	<mvc:view-controller path="/aiPinXuan/authority/center/roleManarger" view-name="aiPinXuan/authority/center/roleManarger" />
+	<mvc:view-controller path="/aiPinXuan/left/finance" view-name="aiPinXuan/left/finance" />
+	<mvc:view-controller path="/aiPinXuan/center/finance/supplierBill" view-name="aiPinXuan/center/finance/supplierBill" />
+	<mvc:view-controller path="/aiPinXuan/center/finance/partnerBill" view-name="aiPinXuan/center/finance/partnerBill" />
+<!-- 	<mvc:view-controller path="/aiPinXuan/center/finance/employeeBill" view-name="aiPinXuan/center/finance/employeeBill" /> -->
+	<mvc:view-controller path="/aiPinXuan/center/commodity/commodity/sellSaleRanking" view-name="aiPinXuan/center/commodity/commodity/sellSaleRanking" />
+	<mvc:view-controller path="/aiPinXuan/center/commodity/commodity/propTimingSKU" view-name="aiPinXuan/center/commodity/commodity/propTimingSKU" />
+	<mvc:view-controller path="/aiPinXuan/center/welcome" view-name="aiPinXuan/center/welcome" />
+	<mvc:view-controller path="/aiPinXuan/center/wLeft" view-name="aiPinXuan/center/wLeft" />
+	<mvc:view-controller path="/aiPinXuan/left/marketing" view-name="aiPinXuan/left/marketing" />
+	<mvc:view-controller path="/aiPinXuan/center/marketing/activityData" view-name="aiPinXuan/center/marketing/activityData" />
+	<mvc:view-controller path="/authority/center/menu" view-name="aiPinXuan/authority/center/menu"/>
+	
+	
+	<!-- 资源相关 -->
+	<mvc:resources location="/WEB-INF/css/" mapping="/css/**" />
+	<mvc:resources location="/WEB-INF/images/" mapping="/images/**" />
+	<mvc:resources location="/WEB-INF/js/" mapping="/js/**" />
+	<mvc:resources location="/WEB-INF/plugin/" mapping="/plugin/**" />
+	<mvc:resources location="/WEB-INF/views/" mapping="/views/**" />
+
+</beans>

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 订单接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.marketing.NanguaGirlDao">
+
+	<!-- [活动销售SPU种类总数] [活动销售SKU种类总数] -->
+	<select id="getNanguaGirlSPU" resultType="java.util.Map">
+		select count(distinct(tp.product_id)) productCount,count(distinct(tpd.product_detail_id)) productDetailCount
+		from t_product tp
+		inner join t_product_detail tpd on tp.product_id = tpd.product_id
+		inner join t_order_detail od on od.product_detail_id = tpd.product_detail_id
+		inner join t_order o on od.order_no = o.order_no
+		where o.order_type = 1
+		and od.activity_no = #{activityId}
+		<if test="platform != null">
+			<if test="platform != ''">
+				and o.order_source = #{platform}
+			</if>
+			<if test="platform == ''">
+				and o.order_source not in ('1','2')
+			</if>
+		</if>		
+		and od.status in (0,1,2)
+		and od.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+		and od.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+	</select>
+	
+	<!-- [活动商品总销量] [活动主订单总数] [活动子订单总数] [现金支付总金额] [实际支付总积分] [福利券支付总积分] -->
+	<select id="getNanguaGirlTotal" resultType="java.util.Map">
+		select nvl(sum(od.buy_num),0)活动商品总销量 ,count(distinct order_no_main)活动主订单总数,count(distinct od.order_no)活动子订单总数,
+		nvl(sum(od.pay_cash),0)现金支付总金额,nvl(sum(od.pay_points),0)实际支付总积分,nvl(sum(od.special_points),0)福利券支付总积分
+		from t_order o,t_order_detail od 
+		where o.order_no = od.order_no
+		and od.activity_no = #{activityId}
+		and o.order_type = 1
+		and o.is_delete = 0
+		<if test="platform != null">
+			<if test="platform != ''">
+				and o.order_source = #{platform}
+			</if>
+			<if test="platform == ''">
+				and o.order_source not in ('1','2')
+			</if>
+		</if>
+		and o.status in (0,1,2)
+		and od.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		and od.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+	</select>
+	
+	<!-- [活动参与总人数] -->
+	<select id="getNanguaGirlUserTotal" resultType="java.util.Map">
+		select count(distinct(o.user_id)) userId
+		from t_order o,t_order_detail od,t_user_info u
+		where o.order_no = od.order_no
+		and o.user_id = u.id
+		and od.activity_no = #{activityId}
+		<if test="platform != null">
+			<if test="platform != ''">
+				and o.order_source = #{platform}
+			</if>
+			<if test="platform == ''">
+				and o.order_source not in ('1','2')
+			</if>
+		</if>
+		and o.order_type = 1
+		and o.status in (0,1,2)
+		and o.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		and o.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+	</select>
+	
+	<!-- [重复参与人数] -->
+	<select id="getNanguaGirlUserRepeat" resultType="java.util.Map">
+		select count(nu) userCount from(
+	      select count(o.user_id) nu 
+	      from t_order o,t_order_detail od,t_user_info u
+	      where od.order_no = o.order_no
+	      and o.user_id = u.id
+	      and o.status in (0,1,2)
+	      and o.order_type = 1
+	      and od.activity_no = #{activityId}
+	      <if test="platform != null">
+			<if test="platform != ''">
+				and o.order_source = #{platform}
+			</if>
+			<if test="platform == ''">
+				and o.order_source not in ('1','2')
+			</if>
+		  </if>
+	      and o.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+	      and o.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+	      group by o.user_id 
+	  ) where nu >=2
+	</select>
+	
+	<select id="getNanguaGirlUserAdd" resultType="java.util.Map">
+	select count(u.id) userTotal from t_user_info u
+	where u.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+	and u.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+	</select>
+</mapper>

@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 订单接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.order.OrderDao">
+
+	<sql id="date">
+		<if test="prevDateOrder != null and prevDateOrder != ''">
+       		to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &gt;= #{prevDateOrder} and 
+       </if>
+       <if test="nextDateOrder != null and nextDateOrder != ''">
+       		 to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &lt;= #{nextDateOrder}
+       </if>
+	</sql>
+	
+	<!-- 统计订单总数   按月  订单总数 -->
+	<select id="orderTotalList" resultType="com.zhb.dataAnalysis.common.repository.database.model.OrderModel">
+		select count(ord.order_no) orderNum,extract(month from ord.create_time) orderMonth 
+	     from t_order ord,t_user_info u
+	     where  ord.user_id=u.id
+	     and extract(year from ord.create_time) = #{orderYear} 
+	     and ord.status in (0,1,2,3,4) 
+	     group by extract(month from ord.create_time) 
+	     order by extract(month from ord.create_time)
+	</select>
+	<!-- 统计订单总数   按月  销量  销售额 -->	
+	<select id="orderTotalSaleList" resultType="com.zhb.dataAnalysis.common.repository.database.model.OrderModel">
+		select round(nvl(sum((de.single_points / de.exchange_rate)*de.buy_num),0),2) orderSumIntegral,sum(de.buy_num) sumNum ,extract(month from ord.create_time) orderMonth 
+	     from t_order ord,t_order_detail de,t_user_info u
+	     where ord.order_no = de.order_no and ord.user_id=u.id
+	     and extract(year from ord.create_time) = #{orderYear}  
+	     and ord.status in (0,1,2) 
+	     group by extract(month from ord.create_time) 
+	     order by extract(month from ord.create_time)
+	</select>
+	
+	<!-- 按供应商 -->
+	<!-- 统计订单总数   按供应商   订单总数-->
+	<select id="orderSupplierList" resultType="java.util.Map">
+		 select count(distinct(ord.order_no)) orderNum, su.name sname from t_order ord
+ 			 inner join T_ORDER_DETAIL de on ord.ORDER_NO = de.ORDER_NO and ord.status in (0,1,2,3,4)  
+        	 <if test="prevDateOrder != null and prevDateOrder != ''">
+       			and to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &gt;= #{prevDateOrder} 
+	         </if>
+	         <if test="nextDateOrder != null and nextDateOrder != ''">
+	       		and  to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &lt;= #{nextDateOrder}
+	         </if> 
+             inner join T_PRODUCT_DETAIL pd on de.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID
+             inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+             inner join T_USER_INFO u on ord.USER_ID = u.ID 
+             left join T_SUPPLIER su on p.SUPPLIER_ID = su.ID and su.status=3 
+             left join T_ORDER_INVOICE i on ord.ORDER_NO_MAIN = i.ORDER_NO_MAIN 
+             group by su.id,su.name order by su.name  
+	</select>
+	<!-- 销量   销售额 -->
+	<select id="orderSupplierSaleList" resultType="java.util.Map">
+		select su.name,sum(de.buy_num) sumNum ,round(nvl(sum((de.single_points / de.exchange_rate)*de.buy_num),0),2) orderSumIntegrals 
+			from t_order ord inner join t_order_detail de on de.order_no = ord.order_no and ord.status in (0,1,2) 
+            <if test="prevDateOrder != null and prevDateOrder != ''">
+       			and to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &gt;= #{prevDateOrder} 
+	         </if>
+	         <if test="nextDateOrder != null and nextDateOrder != ''">
+	       		and  to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &lt;= #{nextDateOrder}
+	         </if> 
+            inner join t_user_info u on ord.user_id in(u.id)  
+            inner join T_PRODUCT_DETAIL pd on de.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID 
+            inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+            left join t_supplier su on  su.status = 3 and p.supplier_id in(su.id)    
+       		group by su.id,su.name order by su.name
+	</select>
+	
+	<!-- 统计所有供应商某时间段的所有供应商的名称-->
+	<select id="supplierList" resultType="java.util.Map">
+		select distinct su.name sname,su.id sid
+         	from t_order ord 
+         	inner join t_order_detail de on de.order_no = ord.order_no and ord.status in (0,1,2,3,4) 
+         	 <if test="prevDateOrder != null and prevDateOrder != ''">
+       			and to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &gt;= #{prevDateOrder} 
+	         </if>
+	         <if test="nextDateOrder != null and nextDateOrder != ''">
+	       		and  to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &lt;= #{nextDateOrder}
+	         </if> 
+            inner join t_user_info u on ord.user_id in(u.id)  
+            inner join T_PRODUCT_DETAIL pd on de.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID 
+            inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+            left join t_supplier su on  su.status = 3 and p.supplier_id in(su.id)  
+            order by su.name
+	</select>
+	
+	<!-- 统计所有供应商的某时间段销售额总数 销量总数 -->
+	<select id="orderSaleCount" resultType="java.util.Map">
+		select nvl(sum(os.orderSumIntegrals),0) orderSumIntegrals,nvl(sum(os.sumNum),0) sumNum from 
+    	 (select su.name sname ,round(nvl(sum((de.single_points / de.exchange_rate)*de.buy_num),0),2) orderSumIntegrals ,nvl(sum(de.buy_num),0) sumNum
+        from t_order ord 
+        	inner join t_order_detail de on de.order_no = ord.order_no and ord.status in (0,1,2) 
+        	<if test="prevDateOrder != null and prevDateOrder != ''">
+       			and to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &gt;= #{prevDateOrder} 
+	         </if>
+	         <if test="nextDateOrder != null and nextDateOrder != ''">
+	       		and  to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &lt;= #{nextDateOrder}
+	         </if> 
+            inner join t_user_info u on ord.user_id in(u.id)  
+            inner join T_PRODUCT_DETAIL pd on de.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID 
+            inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+            left join t_supplier su on  su.status = 3 and p.supplier_id in(su.id)  
+       		group by su.id,su.name order by su.name) os
+	</select>
+	
+	<!-- 统计所有供应商的某时间段的订单总数 -->
+	<select id="orderCount" resultType="int">
+         select nvl(sum(os.orderNum),0) orderNum from
+          (select nvl(count(distinct(ord.order_no)),0) orderNum, su.name sname from t_order ord
+ 			 inner join T_ORDER_DETAIL de on ord.ORDER_NO = de.ORDER_NO and ord.status in (0,1,2,3,4)
+        	 <if test="prevDateOrder != null and prevDateOrder != ''">
+       			and to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &gt;= #{prevDateOrder} 
+	         </if>
+	         <if test="nextDateOrder != null and nextDateOrder != ''">
+	       		and  to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &lt;= #{nextDateOrder}
+	         </if> 
+             inner join T_PRODUCT_DETAIL pd on de.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID
+             inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+             inner join T_USER_INFO u on ord.USER_ID = u.ID 
+             left join T_SUPPLIER su on p.SUPPLIER_ID = su.ID and su.status=3 
+             left join T_ORDER_INVOICE i on ord.ORDER_NO_MAIN = i.ORDER_NO_MAIN 
+             group by su.id,su.name order by su.name) os
+	</select>
+	
+	<!-- 按供应商统计总数 -->
+	<select id="getCount" resultType="int">
+		select nvl(count(os.sname),0) from
+		 (select nvl(count(distinct(ord.order_no)),0) orderNum, su.name sname from t_order ord
+ 			 inner join T_ORDER_DETAIL de on ord.ORDER_NO = de.ORDER_NO and ord.status in (0,1,2,3,4)
+        	 <if test="prevDateOrder != null and prevDateOrder != ''">
+       			and to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &gt;= #{prevDateOrder} 
+	         </if>
+	         <if test="nextDateOrder != null and nextDateOrder != ''">
+	       		and  to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &lt;= #{nextDateOrder}
+	         </if>  
+           	 inner join T_PRODUCT_DETAIL pd on de.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID
+           	 inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+           	 inner join T_USER_INFO u on ord.USER_ID = u.ID 
+             left join T_SUPPLIER su on p.SUPPLIER_ID = su.ID and su.status=3 
+             left join T_ORDER_INVOICE i on ord.ORDER_NO_MAIN = i.ORDER_NO_MAIN 
+             group by su.id,su.name order by su.name  ) os
+	</select>
+	
+	<select id="orderListBySup" resultType="java.util.Map">
+		select count(distinct(ord.order_no)) orderNum, su.name sname from t_order ord
+  			inner join T_ORDER_DETAIL de on ord.ORDER_NO = de.ORDER_NO and ord.status in (0,1,2,3,4)
+        	 <if test="prevDateOrder != null and prevDateOrder != ''">
+       			and to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &gt;= #{prevDateOrder} 
+	         </if>
+	         <if test="nextDateOrder != null and nextDateOrder != ''">
+	       		and  to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &lt;= #{nextDateOrder}
+	         </if> 
+          	inner join T_PRODUCT_DETAIL pd on de.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID
+           	inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+            inner join T_USER_INFO u on ord.USER_ID = u.ID 
+            left join T_SUPPLIER su on p.SUPPLIER_ID = su.ID and su.status=3 
+            and su.id in
+            <foreach collection="supList" index="index" item="supp" open=" (" separator="," close=")" >
+					 #{supp.SID}
+			</foreach>
+            left join T_ORDER_INVOICE i on ord.ORDER_NO_MAIN = i.ORDER_NO_MAIN 
+             where su.name is not null 
+            group by su.id,su.name order by su.name 
+	</select>
+	<select id="orderSaleListBySup" resultType="java.util.Map">
+		 select su.name sname ,round(nvl(sum((de.single_points / de.exchange_rate)*de.buy_num),0),2) orderSumIntegrals ,sum(de.buy_num) sumNum
+		    from t_order ord inner join t_order_detail de on de.order_no = ord.order_no and ord.status in (0,1,2)  
+		    <if test="prevDateOrder != null and prevDateOrder != ''">
+       			and to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &gt;= #{prevDateOrder} 
+	         </if>
+	         <if test="nextDateOrder != null and nextDateOrder != ''">
+	       		and  to_char(ord.create_time,'yyyy-MM-DD hh:mi:ss') &lt;= #{nextDateOrder}
+	         </if> 
+            inner join t_user_info u on ord.user_id in(u.id)  
+            inner join T_PRODUCT_DETAIL pd on de.PRODUCT_DETAIL_ID = pd.PRODUCT_DETAIL_ID 
+            inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID 
+            left join t_supplier su on  su.status = 3 and p.supplier_id in(su.id)
+	        and su.id in 
+			<foreach collection="supList" index="index" item="supp" open=" (" separator="," close=")" >
+				 #{supp.SID}
+			</foreach>
+			 where su.name is not null 
+       		group by su.id,su.name order by su.name
+	</select>
+	<sql id="times">
+		<if test="startTime != null and startTime != ''">
+       		and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') and 
+       </if>
+       <if test="overTime != null and overTime != ''">
+       		tor.create_time &lt;= to_date(#{overTime},'yyyy-mm-dd hh24:mi:ss') 
+       </if>
+       <if test="startTime == null or startTime == '' and overTime == null or overTime == ''">
+       		and tor.create_time &gt;= trunc(sysdate,'mm') and 
+       		tor.create_time &lt;= to_date(concat(to_char(trunc(sysdate,'dd'),'yyyy-mm-dd'),' 23:59:59'),'yyyy-mm-dd hh24:mi:ss') 
+       </if>
+	</sql>
+	
+	<!-- 子订单函数 -->
+	<select id="getReturnedOrder" resultType="int">
+		select 
+			nvl(count(distinct d.order_no),0) receivedOrderNum 
+		from t_order tor inner join T_ORDER_ADDRESS a on tor.ID = a.ORDER_ID
+			 inner join T_ORDER_DETAIL d on tor.ORDER_NO = d.ORDER_NO <include refid="times"></include>
+			 inner join T_PRODUCT_DETAIL pd on d.PRODUCT_DETAIL_ID =
+			                                   pd.PRODUCT_DETAIL_ID
+			 inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID
+			 inner join T_USER_INFO u on tor.USER_ID = u.ID
+			  left join T_SUPPLIER s on p.SUPPLIER_ID = s.ID
+			  left join T_ORDER_INVOICE i on tor.ORDER_NO_MAIN = i.ORDER_NO_MAIN
+			 where 1 = 1
+			   <if test="status == 5">
+			  	and tor.STATUS in (0,1,2,3,4) 
+			   </if>
+			   <if test="status != 5">
+			    and tor.STATUS = #{status}
+			   </if>
+	</select>
+	
+	<!-- 总体销售业绩指标-->
+	<!-- actualMoney 实际支付总积分对应总金额 -->
+	<!-- voucherMoney 福利券支付总积分对应总金额 -->
+	<!-- voucherToMoney 福利券支付总金额  --><!-- paidMoney 现金支付总金额 -->
+	<!-- activitMoney 活动抵扣总积分对应金额 -->
+	<!-- activitToMoney 活动抵扣总金额  -->
+	<!-- costMoney 成本 -->
+	<select id="getAreadyPaidOrder" resultType="java.util.Map">
+	select 
+		round(nvl(sum(tod.pay_points/tod.exchange_rate),0),2) as actualMoney,
+		round(nvl(sum(tod.special_points/tod.exchange_rate),0),2) as voucherMoney,
+		round(nvl(sum(tod.special_cash),0),2) as voucherToMoney,
+		round(nvl(sum(tod.PAY_CASH),0),2) as paidMoney,
+		round(nvl(sum(tod.reduce_points/tod.exchange_rate),0),2) as activitMoney,
+		round(nvl(sum(tod.reduce_cash),0),2) as activitToMoney,
+		nvl(sum(tod.pay_points),0) as actualIntegral,
+		round(nvl(sum(case  when tod.IS_SECKILL = 1 then
+                                  tod.ACTIVITY_PURCHASE_PRICE *
+                                  tod.BUY_NUM
+                            else
+                                  tod.PURCHASE_PRICE * tod.BUY_NUM
+                                  end),0),2) as costMoney,
+		round(nvl(sum((tod.single_points / tod.exchange_rate)*tod.buy_num),0),2) sumProductPrice 
+	from  t_order tor
+		 inner join T_ORDER_ADDRESS a on tor.ID = a.ORDER_ID
+		 inner join T_ORDER_DETAIL tod on tor.ORDER_NO = tod.ORDER_NO <include refid="times"></include>
+		 inner join T_PRODUCT_DETAIL pd on tod.PRODUCT_DETAIL_ID =
+		                                   pd.PRODUCT_DETAIL_ID
+		 inner join T_PRODUCT p on pd.PRODUCT_ID = p.PRODUCT_ID
+		 inner join T_USER_INFO u on tor.USER_ID = u.ID
+		  left join T_SUPPLIER s on p.SUPPLIER_ID = s.ID
+		  left join T_ORDER_INVOICE i on tor.ORDER_NO_MAIN = i.ORDER_NO_MAIN
+		 where 1 = 1
+		   and tor.STATUS in (0,1,2)
+	</select>
+	
+	<!-- 已售出商品总数 -->
+	<select id="getAreadySaled" resultType="int">
+		select nvl(sum(tod.buy_num),0) from 
+			t_order tor,t_order_detail tod,t_supplier ts,T_USER_INFO u  
+		where 
+			ts.status = 3  <include refid="times"></include> and tod.order_no in (tor.order_no) and
+			tor.supplier_id in (ts.id) and tor.user_id in (u.id)
+	</select>
+</mapper>

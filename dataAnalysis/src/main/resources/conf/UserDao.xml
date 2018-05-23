@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 用户接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.user.UserDao">
+	<select id="queryTest" resultType="java.util.Map">
+		select * from T_PRODUCT t
+	</select>
+	<select id="pageQueryTest" resultType="java.util.Map">
+		select * from (
+		select rownum nu,t.* from T_PRODUCT t where rownum &lt;= (#{size}*#{startIndex})
+		) tmp where tmp.nu &gt; (#{startIndex}-1)*#{size}
+	</select>
+</mapper>

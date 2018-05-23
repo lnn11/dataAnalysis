@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 用户接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.shiro.database.TUrlDao">
+	
+	<select id="getUrlList" resultType="java.util.Map">
+		select id,urlName,parentId,sort,url from t_url where isdelete = 0
+	</select>
+	
+	<insert id="insertRoleUrl">
+		insert into t_role_url (roleId,urlId,modify_date) values (#{roleId},#{id},sysdate)
+	</insert>
+	
+	<select id="getRoleUrlById" resultType="java.util.Map">
+		select urlId from t_role_url where roleId=#{roleId}
+	</select>
+	
+	<insert id="addMenu">
+		insert into t_url values(#{pk},#{url},#{menuName},null,#{parent,jdbcType=VARCHAR},sysdate,sysdate,#{sort,jdbcType=NUMERIC},0)
+	</insert>
+	<update id="updateMenu">
+		update t_url
+		<set>
+			<if test="menuName != null and menuName !=''">urlname=#{menuName},</if>			
+			url=#{url,jdbcType=VARCHAR},parentid=#{parent,jdbcType=VARCHAR},sort=#{sort,jdbcType=NUMERIC},
+			modify_date = sysdate
+		</set>
+		<where>id=#{uid}</where>
+	</update>
+	
+	<delete id="deleteMenu">
+		update T_URL set isdelete = 1 where id=#{uid} or parentid=#{uid}
+	</delete>
+</mapper>

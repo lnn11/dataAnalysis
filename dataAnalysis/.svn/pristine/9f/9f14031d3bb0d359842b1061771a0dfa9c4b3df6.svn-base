@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 客户服务对账单接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.customerService.EmployeeWelfareDao">
+
+		<select id="getEmployeeGift" resultType="java.util.Map">
+			select a.activity_id activityId,a.gift_name giftName from t_activity_gift a 
+			where a.is_special = 1 and a.activity_id != 'c875cbbcd7d7439f94140fff72941fbc'
+		</select>
+		
+		<select id="getEmployeeWelfare" resultType="com.zhb.dataAnalysis.common.repository.database.model.EmployeeWelfare">
+		select * from(
+	 	   select rownum nu,a.* from(
+			select w.company_name company,w.employee_name,w.employee_number,w.product_name,(w.sale_price/w.exchange_rate) price,sum(w.special_points) sumSpecialPoints,
+		    listagg(w.employee_welfare,',') within GROUP(ORDER BY w.order_no,w.product_detail_id) welfareName,
+		    sum(w.special_cash) sumSpecialMoney,round(nvl(sum((w.special_points/w.exchange_rate+w.special_cash)/(w.sale_price/w.exchange_rate)),0),4) productNum,w.norm_info normInfo,
+		    w.Tax_Rate taxRate,w.Tax_Type_Code taxTypeCode,w.order_no,to_char(w.confirm_time,'yyyy-mm-dd hh24:mi:ss') createTime
+		    from t_employee_user_welfare w 
+		    where 1 = 1 
+			<if test="startDate &gt;='2017-07-01 00:00:00' or startDate == null or startDate == '' or endDate == null or endDate == ''">
+		   		and w.create_time &gt;= to_date('2017-07-01 00:00:00','yyyy-mm-dd hh24:mi:ss')
+				<if test="startDate != null and startDate != ''">
+			        and w.confirm_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+			     </if>
+			     <if test="endDate != null and endDate != ''">
+			        and w.confirm_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss')
+			     </if>
+			     and w.status = 2
+			 </if>
+			 <if test="startDate &lt; '2017-07-01 00:00:00'">
+			 	<if test="startDate != null and startDate != ''">
+			        and w.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+			     </if>
+			     <if test="endDate != null and endDate != ''">
+			        and w.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss')
+			     </if>
+			 </if>
+		     <if test="company != null and company != ''">
+	        	and w.company_name like '%'||#{company}||'%'
+	        </if>
+	        <if test="welfareName != null and welfareName != ''">
+	        	and w.employee_welfare = #{welfareName}
+	        </if>
+		    group by w.order_no,w.product_detail_id,w.company_name,w.employee_name,w.employee_number,w.product_name,w.exchange_rate,w.sale_price,w.create_time,w.norm_info,w.Tax_Rate,w.Tax_Type_Code,w.confirm_time
+		    order by w.create_time
+			 ) a
+		   where 1=1
+		   <if test="page != 0 and rows != 0">
+		   	and rownum &lt;= (#{page}*#{rows})
+		   </if>
+		) b where 1=1
+		 <if test="page != 0 and rows != 0">
+			and b.nu &gt; (#{page}-1)*#{rows}
+		  </if>
+		</select>
+
+
+	<select id="getEmployeeWelfareExport" resultType="com.zhb.dataAnalysis.common.repository.database.model.EmployeeWelfare">
+		select row_number() over(partition by w.employee_number,w.employee_welfare order by w.confirm_time asc) numbers ,w.company_name company,w.employee_name,w.employee_number,w.product_name,(w.sale_price/w.exchange_rate) price,w.special_points sumSpecialPoints,
+		w.employee_welfare welfareName,
+		w.special_cash sumSpecialMoney,nvl((w.special_points/w.exchange_rate+w.special_cash)/(w.sale_price/w.exchange_rate),0) productNum,w.norm_info normInfo,
+		w.Tax_Rate taxRate,w.Tax_Type_Code taxTypeCode,w.order_no,to_char(w.confirm_time,'yyyy-mm-dd hh24:mi:ss') createTime
+		from t_employee_user_welfare w
+		where 1=1 and w.special_points &gt;0
+		<if test="startDate &gt;='2017-07-01 00:00:00' or startDate == null or startDate == '' or endDate == null or endDate == ''">
+			and w.create_time &gt;= to_date('2017-07-01 00:00:00','yyyy-mm-dd hh24:mi:ss')
+			<if test="startDate != null and startDate != ''">
+				and w.confirm_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+			</if>
+			<if test="endDate != null and endDate != ''">
+				and w.confirm_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss')
+			</if>
+			and w.status = 2
+		</if>
+		<if test="startDate &lt; '2017-07-01 00:00:00'">
+			<if test="startDate != null and startDate != ''">
+				and w.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+			</if>
+			<if test="endDate != null and endDate != ''">
+				and w.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss')
+			</if>
+		</if>
+		<if test="company != null and company != ''">
+			and w.company_name like '%'||#{company}||'%'
+		</if>
+		<if test="welfareName != null and welfareName != ''">
+			and w.employee_welfare = #{welfareName}
+		</if>
+		order by w.confirm_time asc
+
+	</select>
+
+
+		<select id="getEmploySumList" resultType="java.util.Map">
+			select count(1) count,nvl(sum((a.specialPoints/a.exchange_rate+a.specialCash)/(a.sale_price/a.exchange_rate)),0) sumProductNum,nvl(sum(a.specialPoints),0) sumPoints,nvl(sum(a.specialCash),0) sumMoney from (
+				select w.company_name,w.employee_name,w.employee_number,w.product_name,w.sale_price,sum(w.special_points) specialPoints,sum(w.special_cash) specialCash,
+			    listagg(w.employee_welfare,',') within GROUP(ORDER BY w.order_no,w.product_detail_id) welfareName,
+			    w.exchange_rate
+			    from t_employee_user_welfare w 
+			    where 1 = 1 
+				<if test="startDate &gt;='2017-07-01 00:00:00' or startDate == null or startDate == ''">
+				    and w.create_time &gt;= to_date('2017-07-01 00:00:00','yyyy-mm-dd hh24:mi:ss')
+					<if test="startDate != null and startDate != ''">
+				        and w.confirm_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+				     </if>
+				     <if test="endDate != null and endDate != ''">
+				        and w.confirm_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss')
+				     </if>
+				     and w.status = 2
+				 </if>
+				 <if test="startDate &lt; '2017-07-01 00:00:00'">
+				 	<if test="startDate != null and startDate != ''">
+				        and w.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+				     </if>
+				     <if test="endDate != null and endDate != ''">
+				        and w.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss')
+				     </if>
+				 </if>
+			     <if test="company != null and company != ''">
+		        	and w.company_name like '%'||#{company}||'%'
+		        </if>
+		        <if test="welfareName != null and welfareName != ''">
+		        	and w.employee_welfare = #{welfareName}
+		        </if>
+			    group by w.order_no,w.product_detail_id,w.company_name,w.employee_name,w.employee_number,w.product_name,w.exchange_rate,w.sale_price,w.create_time
+			    order by w.create_time
+			) a 
+		</select>
+		<!-- 暂时没用 -->
+		<select id="getSumSpecial" resultType="java.util.Map">
+			select nvl(sum(tod.special_points),0) SUMPOINTS from t_order_detail tod 
+ 			where tod.status in (0,1,2)
+      		<if test="startDate != null and startDate != ''">
+	            and tod.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+	        </if>
+	        <if test="endDate != null and endDate != ''">
+	            and tod.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss')
+	        </if>
+        	and tod.special_points > 0 
+		</select>
+		
+		<select id="queryEmployee" statementType="CALLABLE">
+			<![CDATA[  
+				{call WELFARE(#{startDate,mode=IN,jdbcType=INTEGER},#{endDate,mode=IN,jdbcType=INTEGER})} 
+			]]>
+		</select>
+		
+		<delete id="deleteEmployee">
+			delete from t_employee_user_welfare t where 1=1 
+			<if test="startDate != null and startDate != ''">
+	            and t.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+	        </if>
+	        <if test="endDate != null and endDate != ''">
+	            and t.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss')
+	        </if>
+		</delete>
+
+		<select id="getEmployeeGift1" resultType="java.util.Map">
+			select distinct(w.employee_welfare)  giftName
+		    from t_employee_user_welfare w 
+		    where 1 = 1 
+			<if test="startDate &gt;='2017-07-01 00:00:00' or startDate == null or startDate == ''">
+				<if test="startDate != null and startDate != ''">
+			        and w.confirm_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+			     </if>
+			     <if test="endDate != null and endDate != ''">
+			        and w.confirm_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss')
+			     </if>
+			 </if>
+			 <if test="startDate &lt; '2017-07-01 00:00:00'">
+			 	<if test="startDate != null and startDate != ''">
+			        and w.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+			     </if>
+			     <if test="endDate != null and endDate != ''">
+			        and w.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss')
+			     </if>
+			 </if>
+		     <if test="company != null and company != ''">
+	        	and w.company_name like '%'||#{company}||'%'
+	        </if>
+	        <if test="welfareName != null and welfareName != ''">
+	        	and w.employee_welfare like '%'||#{welfareName}||'%'
+	        </if>
+		</select>
+		
+		<!-- 中秋、春节、元宵员工福利查询业务处理 -->
+		<select id="getEmployeeTotalPoints" resultType="java.util.Map">
+			select * from (
+				select g.user_id userId,g.total_points totalPoints,d.product_name productName,d.single_points singlePoints,d.special_points specialPoints,d.exchange_rate rate,o.order_no_main orderNo,d.create_time createTime from 
+				t_order o 
+				inner join t_order_detail d on o.order_no = d.order_no
+				and d.status in (0,1,2) and d.special_points != 0
+				 <if test="startDate != null and startDate != ''">
+			        and o.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+			     </if>
+			     <if test="endDate != null and endDate != ''">
+			        and o.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss')
+			     </if>
+				left join t_employee_gift g on o.user_id = g.user_id 
+				and g.activity_id='c875cbbcd7d7439f94140fff72941fbc'
+				order by d.create_time
+			) a 
+		</select>
+
+
+<!-- 	<select id="getEmployeeTotalPoints" resultType="java.util.Map"> -->
+<!-- 		select g.user_id userId,g.total_points totalPoints,d.product_name productName,d.single_points singlePoints,d.special_points specialPoints,d.exchange_rate rate,o.order_no_main orderNo,d.create_time createTime from  -->
+<!-- 		t_order o  -->
+<!-- 		inner join t_order_detail d on o.order_no = d.order_no -->
+<!-- 		and d.status in (0,1,2) and d.special_points != 0 -->
+<!-- 		 <if test="startDate != null and startDate != ''"> -->
+<!-- 	        and o.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss') -->
+<!-- 	     </if> -->
+<!-- 	     <if test="endDate != null and endDate != ''"> -->
+<!-- 	        and o.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss') -->
+<!-- 	     </if> -->
+<!-- 		inner join t_employee_gift g on o.user_id = g.user_id  -->
+<!-- 		and g.activity_id='c875cbbcd7d7439f94140fff72941fbc' -->
+<!-- 		order by d.create_time -->
+<!-- 	</select> -->
+
+	<!-- 中秋、春节、元宵员工福利查询业务处理 -->
+	<select id="getEmployeeInfo" resultType="java.util.Map">
+		select ag.employee_no employeeNo,ag.employee_name employeeName,ag.company from 
+		t_employee_activity_log ag 
+		where 
+		ag.user_id = #{userId}
+		<if test="i==1">
+			and ag.activity_type = '1'
+		</if>
+		<if test="i==2">
+			and ag.activity_type = '2'
+		</if>
+		<if test="i==3">
+			and ag.activity_type = '3'
+		</if>
+		<if test="i==4">
+			and ag.activity_type = '2'
+		</if>
+		<if test="i==5">
+			and ag.activity_type = '3'
+		</if>
+		<if test="i==6">
+			and ag.activity_type = '3'
+		</if>
+		<if test="company != null and company != ''">
+        	and ag.company like '%${company}%'
+        </if>
+	</select>
+	<!-- 中秋、春节、元宵员工福利查询业务处理 -->
+	<insert id="insertEmployeeWelfare" parameterType="com.zhb.dataAnalysis.common.repository.database.model.EmployeeWelfare">
+		insert into t_employee_user_welfare (id,company_name,employee_name,employee_number,product_name,buy_num,sale_price,employee_welfare,special_points,special_chah,create_time) 
+		values(SYS_GUID(),#{company},#{employeeName},#{employeeNumber},#{productName},#{productNum},#{price},#{welfareName},#{sumSpecialPoints},#{sumSpecialMoney},to_date(#{createTime},'yyyy-mm-dd hh24:mi:ss'))
+	</insert>
+	<!-- 中秋、春节、元宵员工福利查询业务处理 -->	
+	<select id="getEmployeeWelfareList" resultType="com.zhb.dataAnalysis.common.repository.database.model.EmployeeWelfare">
+		select w.company_name company,w.employee_name employeeName,w.employee_number employeeNumber,w.product_name productName,
+		w.buy_num productNum,w.sale_price price,w.employee_welfare welfareName,w.special_points sumSpecialPoints,
+		w.special_chah sumSpecialMoney from t_employee_user_welfare w
+		where 1 = 1 
+		<if test="startDate != null and startDate != ''">
+	        and w.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+	     </if>
+	     <if test="endDate != null and endDate != ''">
+	        and w.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss')
+	     </if>
+	     <if test="company != null and company != ''">
+        	and w.company_name like '%${company}%'
+        </if>
+        <if test="welfareName != null and welfareName != ''">
+        	and w.employee_welfare like '%${welfareName}%'
+        </if>
+        order by w.employee_name,w.create_time
+	</select>	
+	
+<!-- 	<select id="getEmployeeUsers" resultType="java.util.Map"> -->
+<!-- 			  select   -->
+<!-- 		      t.job_number as employeeNo,g.user_name userName,g.total_points  totalPoints,t.COMPANY_NAME,d.product_name,d.SINGLE_POINTS,d.special_points,d.EXCHANGE_RATE -->
+<!-- 		    from t_employee t left join t_order o -->
+<!-- 		          on t.user_id = o.user_id -->
+<!-- 		          left join t_order_detail d -->
+<!-- 		          on o.order_no = d.order_no -->
+<!-- 		          left join t_employee_gift g -->
+<!-- 		          on t.user_id = g.user_id  -->
+<!-- 		     where    t.mobile is not null and t.user_id is not null   -->
+<!-- 		        <if test="startDate != null and startDate != ''"> -->
+<!-- 		         and o.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss') -->
+<!-- 		      </if> -->
+<!-- 		      <if test="endDate != null and endDate != ''"> -->
+<!-- 		         and o.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss') -->
+<!-- 		      </if> -->
+<!-- 		         and d.SPECIAL_POINTS >0 and g.total_points >0 and o.status in (0,1,2) -->
+<!-- 		       <if test="company != null and company != ''"> -->
+<!-- 		        and t.company_name like '%${company}%' -->
+<!-- 		       </if> -->
+<!-- 		       order by t.job_number,o.create_time -->
+<!-- 	</select> -->
+	<!-- 中秋、春节、元宵员工福利查询业务处理 -->
+	<select id="getHistoryUsedPoint" resultType="java.math.BigDecimal">
+	 	select 
+       			nvl(sum(special_points),0) as usedTotalPoints  
+  		from (
+  			select d.special_points from
+			t_order o 
+			inner join t_order_detail d on o.order_no = d.order_no
+			and d.status in (0,1,2) and d.special_points != 0
+			and d.create_time &lt; to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss')
+			inner join t_employee_gift g on o.user_id = g.user_id and g.activity_id='c875cbbcd7d7439f94140fff72941fbc'
+			inner join 
+			(
+			     select distinct(l.employee_no) employeeNo,l.user_id from t_employee_activity_log l
+			)a on a.user_id = g.user_id and a.employeeNo = #{jobNumber}
+         ) total
+	</select>
+	
+	<select id="getUserGiftByOrderNoSoSumPoint" resultType="java.util.Map">
+		 select to_char(d.create_time,'yyyy-mm-dd hh24:mi:ss') createtime,d.user_id userid,d.gift_name from t_order_gift_detail d
+    where d.order_no=#{orderNo} and d.gift_name like '%'||#{welfareName}||'%'
+	</select>
+	<select id="getOldUsePoint" resultType="java.lang.Integer">
+		select nvl(sum(aa.sumspecialpoints),0) from(
+			select row_number() over(partition by w.employee_number order by w.confirm_time asc) nn ,to_char(w.company_name,'yyyy-mm-dd hh24:mi:ss')  company,w.employee_name,w.employee_number,w.product_name,(w.sale_price/w.exchange_rate) price,w.special_points sumSpecialPoints,
+    		w.employee_welfare welfareName,
+    		special_cash sumSpecialMoney,nvl((w.special_points/w.exchange_rate+w.special_cash)/(w.sale_price/w.exchange_rate),0) productNum,w.norm_info normInfo,
+			w.Tax_Rate taxRate,w.Tax_Type_Code taxTypeCode,w.order_no
+			from t_employee_user_welfare w
+		where w.employee_number=#{employeeNumber}
+		and w.employee_welfare  like  '%'||#{welfareName}||'%'
+		and w.special_points &gt; 0
+
+		)  aa where   aa.nn &lt; #{number,jdbcType=INTEGER}
+	</select>
+	<select id="getEmActivityLog" resultType="java.util.Map">
+		 SELECT jx_points,djr_points FROM t_Employee_Activity_Log
+		  where employee_no=#{employeeNo} and gift_name like  '%'||#{welfareName}||'%'
+	</select>
+</mapper>

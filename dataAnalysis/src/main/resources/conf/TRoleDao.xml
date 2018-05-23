@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 用户接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.shiro.database.TRoleDao">
+	
+	<select id="getRoleList" resultType="com.zhb.dataAnalysis.common.shiro.model.TRole">
+		select r.id id, r.rolename roleName,r.remark remark from t_role r
+	</select>
+	
+	<select id="getRoleLists" resultType="com.zhb.dataAnalysis.common.shiro.model.TRole">
+		 select tep.id,tep.roleName,tep.remark 
+   		 from (select rownum rn, r.id id, r.rolename roleName,r.remark remark ,r.create_date
+    	 from t_role r 
+    	 where rownum &lt;= (#{page}*#{rows}) order by r.create_date asc) tep 
+    	 where tep.rn &gt; (#{page}-1)*#{rows}
+	</select>
+	
+	<select id="getCount" resultType="int">
+		select count(1) from t_role 
+	</select>
+	
+	<insert id="insertRole" parameterType="com.zhb.dataAnalysis.common.shiro.model.TRole">
+		 insert into t_role (rolename,remark,create_date,modify_date) 
+		 values 
+		 (#{roleName},#{remark},sysdate,sysdate)
+	</insert>
+	
+	<select id="getRoleById" resultType="com.zhb.dataAnalysis.common.shiro.model.TRole">
+		select id,roleName,remark from t_role where id=#{id}
+	</select>
+	
+	<update id="updateRole" parameterType="com.zhb.dataAnalysis.common.shiro.model.TRole">
+		update t_role set rolename=#{roleName},remark=#{remark},modify_date=sysdate where id=#{id}
+	</update>
+	
+	<delete id="delRole">
+		delete from t_role where id=#{id}
+	</delete>
+	
+	<delete id="delRoleUrl">
+		delete from t_role_url where roleId=#{id}
+	</delete>
+	<select id="getByRoleName" resultType="com.zhb.dataAnalysis.common.shiro.model.TRole">
+		select id,roleName,remark from t_role where roleName=#{roleName}
+	</select>
+	<select id="getUserIdByRoleId" resultType="string">
+		select userId from t_user_role where roleId=#{roleId}
+	</select>
+</mapper>

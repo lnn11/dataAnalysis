@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 用户接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.shiro.database.TUserDao">
+	<select id="queryTest" resultType="com.zhb.dataAnalysis.common.shiro.model.TUser">
+		select * from T_USER t
+	</select>
+	
+	<select id="userList" resultType="com.zhb.dataAnalysis.common.shiro.model.TUser">
+		select tep.id id, tep.username userName,tep.roleName roleName, tep.remark remark 
+   	    from (select rownum rn, e.id id, a.userName username,e.roleName roleName,a.remark remark ,a.create_date
+        from (select u.id id, listagg(r.roleName,',') within group (order by u.userName) roleName
+        from T_USER u, t_user_role ur, t_role r 
+        where u.id=ur.userid(+) 
+        and ur.roleid=r.id(+)  
+        group by u.id) e, t_user a 
+        where e.id = a.id 
+        and rownum &lt;= (#{page}*#{rows}) order by a.create_date asc) tep 
+        where tep.rn &gt; (#{page}-1)*#{rows}
+	</select>
+	
+	<select id="getCount" resultType="int">
+		select count(1) from T_USER 
+	</select>
+	
+	<delete id="delUser">
+		delete from T_USER where id=#{id} 
+	</delete>
+	
+	<insert id="insertUser" parameterType="com.zhb.dataAnalysis.common.shiro.model.TUser">
+		insert into t_user 
+		(username,password,create_date,modify_date,remark) 
+		values 
+		(#{userName},#{password},sysdate,sysdate,#{remark})
+	</insert>
+	
+	<select id="getLastUser" resultType="com.zhb.dataAnalysis.common.shiro.model.TUser">
+		select * from t_user order by create_date desc
+	</select>
+	
+	<insert id="insertUserRole" >
+		insert into t_user_role  
+		(userId,roleId,modify_date) 
+		values 
+		(#{id},#{role},sysdate)
+	</insert>
+	
+	<select id="getUserById" resultType="com.zhb.dataAnalysis.common.shiro.model.TUser">
+		 select * from t_user where id = #{id}
+	</select>
+	
+	<select id="getUserRoleById" resultType="java.util.Map">
+		select listagg(ur.roleid,',') within group (order by ur.userid) roles, listagg(r.rolename,',') within group (order by r.rolename) roleName
+   		from t_user_role ur,t_role r where userid=#{id} and ur.roleid=r.id
+	</select>
+	
+	<update id="updateUser" parameterType="com.zhb.dataAnalysis.common.shiro.model.TUser">
+		update t_user set 
+		username=#{userName},
+		<if test="password!=null and remark!=''">
+		password=#{password},
+		</if>
+		<if test="remark!=null and remark !=''">
+		remark=#{remark},
+		</if>
+		modify_date=sysdate where id=#{id}
+	</update>
+	
+	<delete id="delUserRole">
+		delete from t_user_role where userid=#{id}
+	</delete>
+	
+	<select id="getByName" resultType="com.zhb.dataAnalysis.common.shiro.model.TUser">
+		 select * from t_user where userName = #{userName}
+	</select>
+	
+	<select id="getUserByName" resultType="com.zhb.dataAnalysis.common.shiro.model.TUser">
+		 select * from t_user where userName = #{username}
+	</select>
+	
+	<select id="checkPassword" resultType="com.zhb.dataAnalysis.common.shiro.model.TUser">
+		select * from t_user where id=#{id} and password=#{password}
+	</select>
+</mapper>

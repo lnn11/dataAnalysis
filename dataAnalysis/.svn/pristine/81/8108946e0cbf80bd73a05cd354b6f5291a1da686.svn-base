@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 商品接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.operate.OperateDao">
+
+	<sql id="times">
+		<if test="startDate != null and startDate != ''">
+       		tp.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd hh24:mi:ss') and 
+       </if>
+       <if test="endDate != null and endDate != ''">
+       		tp.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd hh24:mi:ss') and 
+       </if>
+       <if test="startDate == null or startDate == ''">
+       		tp.create_time &gt;= trunc(sysdate,'mm') and 
+       </if>
+       <if test="endDate == null or endDate == ''">
+       		 tp.create_time &lt;= to_date(concat(to_char(trunc(sysdate,'dd'),'yyyy-mm-dd'),' 23:59:59'),'yyyy-mm-dd hh24:mi:ss') and 
+       </if>
+	</sql>
+	
+	<sql id="rechargeTime">
+		<if test="startDate != null and startDate != ''">
+       		(to_date(to_char(c.RESPONSE_TIME,'yyyy-mm-dd'),'yyyy-mm-dd')) &gt;= to_date(#{startDate} ,'yyyy-mm-dd hh24:mi:ss') and
+       </if>
+       <if test="endDate != null and endDate != ''">
+       		(to_date(to_char(c.RESPONSE_TIME,'yyyy-mm-dd'),'yyyy-mm-dd')) &lt;= to_date(#{endDate} ,'yyyy-mm-dd hh24:mi:ss') 
+       </if>
+       <if test="startDate == null or startDate == ''">
+       		(to_date(to_char(c.RESPONSE_TIME,'yyyy-mm-dd'),'yyyy-mm-dd')) &gt;= trunc(sysdate,'mm') and 
+       </if>
+       <if test="endDate == null or endDate == ''">
+      		(to_date(to_char(c.RESPONSE_TIME,'yyyy-mm-dd'),'yyyy-mm-dd')) &lt;= to_date(concat(to_char(trunc(sysdate,'dd'),'yyyy-mm-dd'),' 23:59:59'),'yyyy-mm-dd hh24:mi:ss') 
+       </if>
+	</sql>
+	
+	<!-- 查询在售商品主商品总数 -->
+	<select id="getProductSPU" resultType="java.math.BigDecimal">
+		select 
+			count(distinct tpd.product_id) mainProductNum 
+		from 
+			t_product tp,t_product_detail tpd,t_product_category tpc 
+	     where tp.status = 5 and tp.category_id = tpc.product_category_id and <include refid="times"></include> tpd.product_id in (tp.product_id)
+	     	union all
+     	select 
+     		count(distinct tpd.product_id) mainSaledSumNum 
+		from 
+			t_product tp,t_product_detail tpd,t_product_category tpc  
+		where tp.status in (6,5) and tp.category_id = tpc.product_category_id and <include refid="times"></include> tpd.product_id in (tp.product_id)
+	</select>
+	
+	<!-- 充值类指标  话费/流量/加油卡订单总数 (状态:已支付和已完成)-->
+	<select id="getRechargeOrderNum" resultType="java.math.BigDecimal">
+	 	SELECT 
+	 		count(c.ORDER_NO) rechargeOrderNum
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS in (0,2)
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='话费')<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>
+           union all 
+        SELECT 
+	 		count(c.ORDER_NO) rechargeOrderNum
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS in (0,2)
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='流量')<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>
+           union all 
+        SELECT 
+	 		count(c.ORDER_NO) rechargeOrderNum
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS in (0,2)
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='加油卡')<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>
+	</select>
+	
+	<!-- 话费/流量/加油卡 分别查询   已支付 /已完成/已取消/已失效订单总数-->
+	<select id="getRechargeOrderNumByStatus" resultType="java.util.Map">
+	select 
+		case when 0=0 then
+		(SELECT 
+	 		count(c.ORDER_NO) 
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS = 0 <!-- 已支付 -->
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='话费'<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>)) end as payOrderNum,
+		case when 2=2 then
+        ( SELECT 
+	 		count(c.ORDER_NO) 
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS = 2 <!-- 已完成 -->
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='话费'<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>)) end as completedOrderNum,
+		case when 4=4 then
+		(SELECT 
+	 		count(c.ORDER_NO) 
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS = 4 <!-- 已取消 -->
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='话费'<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>)) end as cancelOrderNum,
+		case when 5=5 then
+         ( SELECT 
+	 		count(c.ORDER_NO) 
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS = 5 <!-- 已失效 -->
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='话费'<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>)) end as lapsedOrderNum
+     from dual 
+         union all 
+      select 
+		case when 0=0 then
+		(SELECT 
+	 		count(c.ORDER_NO) 
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS = 0 <!-- 已支付 -->
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='流量'<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>))end as payOrderNum,
+		case when 2=2 then
+        ( SELECT 
+	 		count(c.ORDER_NO) 
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS = 2 <!-- 已完成 -->
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='流量'<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>))end as completedOrderNum,
+		case when 4=4 then
+		(SELECT 
+	 		count(c.ORDER_NO) 
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS = 4 <!-- 已取消 -->
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='流量'<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>))end as cancelOrderNum,
+		case when 5=5 then
+         ( SELECT 
+	 		count(c.ORDER_NO) 
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS = 5 <!-- 已失效 -->
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='流量'<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>))end as lapsedOrderNum
+     from dual 
+         union all 
+     select 
+		case when 0=0 then
+		(SELECT 
+	 		count(c.ORDER_NO) 
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS = 0 <!-- 已支付 -->
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='加油卡'<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>))end as payOrderNum,
+		case when 2=2 then
+        ( SELECT 
+	 		count(c.ORDER_NO) 
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS = 2 <!-- 已完成 -->
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='加油卡'<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>))end as completedOrderNum,
+		case when 4=4 then
+		(SELECT 
+	 		count(c.ORDER_NO) 
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS = 4 <!-- 已取消 -->
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='加油卡'<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>))end as cancelOrderNum,
+		case when 5=5 then
+         ( SELECT 
+	 		count(c.ORDER_NO) 
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS = 5 <!-- 已失效 -->
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='加油卡'<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>))end as lapsedOrderNum
+     from dual 
+	</select>
+	
+	<!-- 话费/流量/加油卡销售指标 -->
+	<select id="getRechargeSaleIndex" resultType="java.util.Map">
+		SELECT 
+	 		nvl(sum(c.charge_money),0) AS chargeMoney,<!-- 销售额 -->
+            nvl(sum(c.deduct_money_19e),0) as costMoney,<!-- 成本 -->
+            nvl(sum(c.charge_money - c.deduct_money_19e),0) as grossProfit <!-- 毛利润 -->
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS in (0,2)
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='话费')<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>
+           union all 
+        SELECT 
+	 		nvl(sum(c.charge_money),0) AS chargeMoney,<!-- 销售额 -->
+            nvl(sum(c.deduct_money_19e),0) as costMoney,<!-- 成本 -->
+            nvl(sum(c.charge_money - c.deduct_money_19e),0) as grossProfit <!-- 毛利润 -->
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS in (0,2)
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='流量')<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>
+        	union all 
+        SELECT 
+	 		nvl(sum(c.charge_money),0) AS chargeMoney,<!-- 销售额 -->
+            nvl(sum(c.deduct_money_19e),0) as costMoney,<!-- 成本 -->
+            nvl(sum(c.charge_money - c.deduct_money_19e),0) as grossProfit <!-- 毛利润 -->
+     	FROM t_charge c 
+     	JOIN t_recharge_set s ON c.CHARGE_TYPE=s.PTYPE AND c.CHARGE_MONEY=s.ORIGINAL_PRICE 
+                           AND instr(c.PRODISPTYPE,(SELECT biz_desc FROM biz_data_dictionary WHERE biz_type='充值供应商' AND biz_value=s.SUPPLIER))>0
+     	WHERE c.ORDER_STATUS in (0,2)
+           AND c.CHARGE_TYPE=(SELECT biz_value FROM biz_data_dictionary WHERE biz_type='充值类型' AND biz_desc='加油卡')<!-- 充值类型 -->
+           AND <include refid="rechargeTime"></include>
+	</select>
+</mapper>

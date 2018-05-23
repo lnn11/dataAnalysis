@@ -1,0 +1,855 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 订单接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.marketing.SummerSpecialDao">
+	<select id="getSummerSpecialSPUSKU" resultType="java.util.Map">
+		select count(distinct(tp.product_id)) productCount,count(distinct(tpd.product_detail_id)) productDetailCount from 
+	    t_product tp 
+	    inner join t_product_detail tpd on tp.product_id = tpd.product_id
+	    inner join t_order_detail tod on tpd.product_detail_id = tod.product_detail_id
+	    inner join t_order tor on tor.order_no = tod.order_no
+	    where 
+	     tod.status in (0,1,2)
+	    and tor.is_delete = 0 
+	    <if test="startTime != null and startTime != ''">
+	    	and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+	    </if>
+	    <if test="endTime != null and endTime != ''">
+			and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		</if>
+		<if test="data == '全部'">
+	      and tod.activity_no like '%'||#{activityId}||'%'
+	    </if>
+	    <if test="data == '限时抢购'">
+	    	and tod.activity_no = #{activityId}
+            and tod.is_seckill = 1
+	    </if>
+	    <if test="data == '限时秒杀'">
+	    	and tod.activity_no = #{activityId}
+            and tod.is_seckill = 1
+	    </if>
+	    <if test="data == '秒杀'">
+	    	and tod.activity_no = #{activityId}
+            and tod.is_seckill = 1
+	    </if>
+	    <if test="data == '直降'">
+	    	and tod.is_lower = 1
+    		and tod.activity_no = #{activityId}
+	    </if>
+	    <if test="data == '满减'">
+	    	and tod.activity_no = CONCAT(#{activityId},'-2')
+	    </if>
+	    <if test="orderSource != null and orderSource != ''">
+		      and tor.order_source = #{orderSource}
+		</if>
+	</select>
+	<select id="getSummerSpecialTotal" resultType="java.util.Map">
+		select nvl(sum(tod.buy_num-tod.return_num),0) 活动商品总销量,count(distinct(tor.order_no_main)) 活动主订单总数,count(distinct(tod.order_no)) 活动子订单总数,
+		nvl(sum(tod.pay_cash-tod.return_cash),0) 现金支付总金额,nvl(sum(tod.pay_points-tod.return_points),0) 实际支付总积分,nvl(sum(tod.special_points-tod.return_special_points),0) 福利券支付总积分 from
+	    t_order tor, t_order_detail tod ,t_product_detail tpd
+	    where  tor.order_no = tod.order_no and tod.product_detail_id = tpd.product_detail_id 
+	    and tod.status in (0,1,2)        
+	    and tor.is_delete = 0      
+	     <if test="startTime != null and startTime != ''">
+	    	and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+	    </if>
+	    <if test="endTime != null and endTime != ''">
+			and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		</if>
+		<if test="data == '全部'">
+	      and tod.activity_no like '%'||#{activityId}||'%'
+	    </if>
+	    <if test="data == '限时抢购'">
+	    	and tod.activity_no = #{activityId}
+            and tod.is_seckill = 1
+	    </if>
+	    <if test="data == '限时秒杀'">
+	    	and tod.activity_no = #{activityId}
+            and tod.is_seckill = 1
+	    </if>
+	    <if test="data == '秒杀'">
+	    	and tod.activity_no = #{activityId}
+            and tod.is_seckill = 1
+	    </if>
+	    <if test="data == '直降'">
+	    	and tod.is_lower = 1
+    		and tod.activity_no = #{activityId}
+	    </if>
+	    <if test="data == '满减'">
+	    	and tod.activity_no = CONCAT(#{activityId},'-2')
+	    </if>
+	    <if test="orderSource != null and orderSource != ''">
+		      and tor.order_source = #{orderSource}
+		</if>
+	</select>
+	<select id="getSummerSpecialUserTotal" resultType="java.util.Map">
+			select count(distinct(tui.id)) userId from
+			t_order tor
+			inner join t_order_detail tod on tor.order_no = tod.order_no
+			inner join t_user_info tui on tor.user_id = tui.id
+			inner join t_product_detail tpd on tpd.product_detail_id = tod.product_detail_id
+			where
+			tod.status in (0,1,2)
+			and tor.is_delete = 0
+	    <if test="startTime != null and startTime != ''">
+	    	and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+	    </if>
+	    <if test="endTime != null and endTime != ''">
+			and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		</if>
+		<if test="data == '全部'">
+	      and tod.activity_no like '%'||#{activityId}||'%'
+	    </if>
+	    <if test="data == '限时抢购'">
+	    	and tod.activity_no = #{activityId}
+            and tod.is_seckill = 1
+	    </if>
+	    <if test="data == '限时秒杀'">
+	    	and tod.activity_no = #{activityId}
+            and tod.is_seckill = 1
+	    </if>
+	    <if test="data == '秒杀'">
+	    	and tod.activity_no = #{activityId}
+            and tod.is_seckill = 1
+	    </if>
+	    <if test="data == '直降'">
+	    	and tod.is_lower = 1
+    		and tod.activity_no = #{activityId}
+	    </if>
+	    <if test="data == '满减'">
+	    	and tod.activity_no = CONCAT(#{activityId},'-2')
+	    </if>
+	    <if test="orderSource != null and orderSource != ''">
+		      and tor.order_source = #{orderSource}
+		</if>
+	</select>
+	<select id="getSummerSpecialUserTotals" resultType="java.util.Map">
+		select count(distinct(tui.id)) userId from 
+	    t_order tor 
+	    inner join t_order_detail tod on tor.order_no = tod.order_no
+	    inner join t_user_info tui on tor.user_id = tui.id
+	    inner join t_product_detail tpd on tpd.product_detail_id = tod.product_detail_id
+	    where 
+	    tod.status in (0,1,2)  
+	    and tor.is_delete = 0  
+	    <if test="startTime != null and startTime != ''">
+	    	and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+	    </if>
+	    <if test="endTime != null and endTime != ''">
+			and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		</if>
+		<if test="data == '全部'">
+	      and tod.activity_no like '%'||#{activityId}||'%'
+	    </if>
+	    <if test="data == '限时抢购'">
+	    	and tod.activity_no = #{activityId}
+            and tod.is_seckill = 1
+	    </if>
+	    <if test="data == '限时秒杀'">
+	    	and tod.activity_no = #{activityId}
+            and tod.is_seckill = 1
+	    </if>
+	    <if test="data == '秒杀'">
+	    	and tod.activity_no = #{activityId}
+            and tod.is_seckill = 1
+	    </if>
+	    <if test="data == '直降'">
+	    	and tod.is_lower = 1
+    		and tod.activity_no = #{activityId}
+	    </if>
+	    <if test="data == '满减'">
+	    	and tod.activity_no = CONCAT(#{activityId},'-2')
+	    </if>
+	    <if test="orderSource != null and orderSource != ''">
+	    	<if test="orderSource == 2">
+	    		and tor.order_source in ('2','4')
+	    	</if>
+	    	<if test="orderSource != 2">
+		      and tor.order_source = #{orderSource}
+	    	</if>
+		</if>
+	</select>
+	<select id="getSummerSpecialUserRepeat" resultType="java.util.Map">
+		select count(a.num) userCount from(
+         select count(b.user_id) num from (
+          select count(distinct(tor.order_no_main)) num ,tor.user_id from t_order tor
+          inner join t_order_detail tod on tor.order_no = tod.order_no
+          inner join t_user_info tui on tui.id = tor.user_id 
+          where
+            tor.is_delete = 0
+            and tor.status in (0,1,2)
+             <if test="startTime != null and startTime != ''">
+		    	and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		    </if>
+		    <if test="endTime != null and endTime != ''">
+				and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+			</if>
+			<if test="data == '全部'">
+		      and tod.activity_no like '%'||#{activityId}||'%'
+		    </if>
+		    <if test="data == '限时抢购'">
+		    	and tod.activity_no = #{activityId}
+	            and tod.is_seckill = 1
+		    </if>
+		    <if test="data == '限时秒杀'">
+		    	and tod.activity_no = #{activityId}
+	            and tod.is_seckill = 1
+		    </if>
+		    <if test="data == '秒杀'">
+		    	and tod.activity_no = #{activityId}
+	            and tod.is_seckill = 1
+		    </if>
+		    <if test="data == '直降'">
+		    	and tod.is_lower = 1
+	    		and tod.activity_no = #{activityId}
+		    </if>
+		    <if test="data == '满减'">
+		    	and tod.activity_no = CONCAT(#{activityId},'-2')
+		    </if>
+		    <if test="orderSource != null and orderSource != ''">
+			      and tor.order_source = #{orderSource}
+			</if>
+          group by tor.order_no_main,tor.user_id
+         ) b group by b.user_id
+      ) a where a.num >= 2
+	</select>
+	
+	<select id="getSummerSpecialUserRepeats" resultType="java.util.Map">
+		select count(a.num) userCount from(
+         select count(b.user_id) num from (
+          select count(distinct(tor.order_no_main)) num ,tor.user_id from t_order tor
+          inner join t_order_detail tod on tor.order_no = tod.order_no
+          inner join t_user_info tui on tui.id = tor.user_id 
+          where
+            tor.is_delete = 0
+            and tor.status in (0,1,2)
+             <if test="startTime != null and startTime != ''">
+		    	and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		    </if>
+		    <if test="endTime != null and endTime != ''">
+				and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+			</if>
+			<if test="data == '全部'">
+		      and tod.activity_no like '%'||#{activityId}||'%'
+		    </if>
+		    <if test="data == '限时抢购'">
+		    	and tod.activity_no = #{activityId}
+	            and tod.is_seckill = 1
+		    </if>
+		    <if test="data == '限时秒杀'">
+		    	and tod.activity_no = #{activityId}
+	            and tod.is_seckill = 1
+		    </if>
+		    <if test="data == '秒杀'">
+		    	and tod.activity_no = #{activityId}
+	            and tod.is_seckill = 1
+		    </if>
+		    <if test="data == '直降'">
+		    	and tod.is_lower = 1
+	    		and tod.activity_no = #{activityId}
+		    </if>
+		    <if test="data == '满减'">
+		    	and tod.activity_no = CONCAT(#{activityId},'-2')
+		    </if>
+		    <if test="orderSource != null and orderSource != ''">
+		    	<if test="orderSource == 2">
+		    		and tor.order_source in ('2','4')
+		    	</if>
+		    	<if test="orderSource != 2">
+			      and tor.order_source = #{orderSource}
+		    	</if>
+			</if>
+          group by tor.order_no_main,tor.user_id
+         ) b group by b.user_id
+      ) a where a.num >= 2
+	</select>
+	<!-- 团购-->
+	<select id="getGroupSpuSku" resultType="java.util.Map">
+		select count(distinct(tp.product_id)) productCount,count(distinct(tpd.product_detail_id)) productDetailCount  from t_product tp 
+		 inner join t_product_detail tpd on tp.product_id = tpd.product_id and tp.product_id in
+		 <foreach collection="productId" index="index" item="item" open=" (" separator="," close=")" >
+			 #{item}
+		 </foreach>
+		 inner join t_order_detail tod on tpd.product_detail_id = tod.product_detail_id
+		 inner join t_order tor on tod.order_no = tor.order_no 
+		 <if test="startTime != null and startTime != ''">
+	    	and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+	     </if>
+	     <if test="endTime != null and endTime != ''">
+			and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		 </if>
+		 and tor.is_delete = 0
+		 and tor.group_buy_status = 2 
+		 and tor.order_type = 4
+		 <if test="orderSource != null and orderSource != ''">
+		      and tor.order_source = #{orderSource}
+		 </if>
+	</select>
+	<select id="getGroupSpecialTotal" resultType="java.util.Map">
+		select nvl(sum(tod.buy_num-tod.return_num),0) 活动商品总销量,count(distinct(tor.order_no_main)) 活动主订单总数,count(distinct(tod.order_no)) 活动子订单总数,
+		      nvl(sum(tod.pay_cash-tod.return_cash),0) 现金支付总金额,nvl(sum(tod.pay_points-tod.return_points),0) 实际支付总积分,nvl(sum(tod.special_points-tod.return_special_points),0) 福利券支付总积分  from t_product tp 
+		 inner join t_product_detail tpd on tp.product_id = tpd.product_id and tp.product_id in
+		 <foreach collection="productId" index="index" item="item" open=" (" separator="," close=")" >
+			 #{item}
+		 </foreach>
+		 inner join t_order_detail tod on tpd.product_detail_id = tod.product_detail_id
+		 inner join t_order tor on tod.order_no = tor.order_no 
+		 <if test="startTime != null and startTime != ''">
+	    	and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+	     </if>
+	     <if test="endTime != null and endTime != ''">
+			and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		 </if>
+		 and tor.is_delete = 0
+		 and tor.group_buy_status = 2 
+		 and tor.order_type = 4
+		 <if test="orderSource != null and orderSource != ''">
+		      and tor.order_source = #{orderSource}
+		 </if>
+		<if test="activityId!=null and activityId!=''">
+			and tod.ACTIVITY_NO=#{activityId}
+		</if>
+	</select>
+	<select id="getGroupUserTotal" resultType="java.util.Map">
+		 select count(distinct(tor.user_id)) userId from t_product tp 
+		 inner join t_product_detail tpd on tp.product_id = tpd.product_id and tp.product_id in
+		 <foreach collection="productId" index="index" item="item" open=" (" separator="," close=")" >
+			 #{item}
+		 </foreach>
+		 inner join t_order_detail tod on tpd.product_detail_id = tod.product_detail_id
+		 inner join t_order tor on tod.order_no = tor.order_no 
+		 <if test="startTime != null and startTime != ''">
+	    	and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+	     </if>
+	     <if test="endTime != null and endTime != ''">
+			and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		 </if>
+		 and tor.is_delete = 0
+		 and tor.group_buy_status = 2 
+		 and tor.order_type = 4
+		 <if test="orderSource != null and orderSource != ''">
+		      and tor.order_source = #{orderSource}
+		 </if>
+	</select>
+	<select id="getGroupUserTotals" resultType="java.util.Map">
+		select count(distinct(tor.user_id)) userId from t_product tp 
+		 inner join t_product_detail tpd on tp.product_id = tpd.product_id and tp.product_id in
+		 <foreach collection="productId" index="index" item="item" open=" (" separator="," close=")" >
+			 #{item}
+		 </foreach>
+		 inner join t_order_detail tod on tpd.product_detail_id = tod.product_detail_id
+		 inner join t_order tor on tod.order_no = tor.order_no 
+		 <if test="startTime != null and startTime != ''">
+	    	and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+	     </if>
+	     <if test="endTime != null and endTime != ''">
+			and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		 </if>
+		 and tor.is_delete = 0
+		 and tor.group_buy_status = 2 
+		 and tor.order_type = 4
+		 <if test="orderSource != null and orderSource != ''">
+		      and tor.order_source = #{orderSource}
+		 </if>
+	</select>
+	<select id="getGroupUserRepeat" resultType="java.util.Map">
+		select count(a.num) userCount from( 
+		 select count(b.user_id) num from (
+		     select count(distinct(tor.order_no_main)) num,tor.user_id from t_product tp 
+		     inner join t_product_detail tpd on tp.product_id = tpd.product_id and tp.product_id in
+		     <foreach collection="productId" index="index" item="item" open=" (" separator="," close=")" >
+				 #{item}
+			 </foreach>
+		     inner join t_order_detail tod on tpd.product_detail_id = tod.product_detail_id
+		     inner join t_order tor on tod.order_no = tor.order_no 
+		     <if test="startTime != null and startTime != ''">
+		    	and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		     </if>
+		     <if test="endTime != null and endTime != ''">
+				and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+			 </if>
+		     and tor.is_delete = 0
+		     and tor.group_buy_status = 2 
+		     and tor.order_type = 4
+		    <if test="orderSource != null and orderSource != ''">
+		    	<if test="orderSource == 2">
+		    		and tor.order_source in ('2','4')
+		    	</if>
+		    	<if test="orderSource != 2">
+			      and tor.order_source = #{orderSource}
+		    	</if>
+			</if>
+		     group by tor.order_no_main,tor.user_id
+		  ) b group by b.user_id
+		) a where a.num >= 2
+	</select>
+	
+	<select id="getGroupUserRepeats" resultType="java.util.Map">
+		select count(a.num) userCount from( 
+		 select count(b.user_id) num from (
+		     select count(distinct(tor.order_no_main)) num,tor.user_id from t_product tp 
+		     inner join t_product_detail tpd on tp.product_id = tpd.product_id and tp.product_id in
+		     <foreach collection="productId" index="index" item="item" open=" (" separator="," close=")" >
+				 #{item}
+			 </foreach>
+		     inner join t_order_detail tod on tpd.product_detail_id = tod.product_detail_id
+		     inner join t_order tor on tod.order_no = tor.order_no 
+		     <if test="startTime != null and startTime != ''">
+		    	and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		     </if>
+		     <if test="endTime != null and endTime != ''">
+				and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+			 </if>
+		     and tor.is_delete = 0
+		     and tor.group_buy_status = 2 
+		     and tor.order_type = 4
+		      <if test="orderSource != null and orderSource != ''">
+		    	<if test="orderSource == 2">
+		    		and tor.order_source in ('2','4')
+		    	</if>
+		    	<if test="orderSource != 2">
+			      and tor.order_source = #{orderSource}
+		    	</if>
+			</if>
+		     group by tor.order_no_main,tor.user_id
+		  ) b group by b.user_id
+		) a where a.num >= 2
+	</select>
+	<!-- 拉新会员数 -->
+	<select id="getActivityUserCount" resultType="java.util.Map">
+		select count(1) activityUserCount from t_user_info tui 
+		where 1=1
+		<if test="startTime != null and startTime != ''">
+			and tui.create_time &gt;= to_date(#{startTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+		 	and tui.create_time &lt;= to_date(#{endTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		<if test="plat != '' and plat != null">
+			and tui.platformsource =  #{plat}
+		</if>
+		<if test="activityId!=null and activityId!=''">
+		and tui.bussinesschannel = #{activityId}
+		</if>
+	</select>
+	<!-- 参与人次   人数 -->
+	<select id="getParticipationData" resultType="java.util.Map">
+		select count(1) participationDataTimes,count(distinct(td.user_id)) participationDataNumber from t_dial_lucky_draw td
+		where 1=1
+		<if test="activityType != null">
+			and td.ACTIVITY_TYPE = #{activityType}
+		</if>
+		and td.INTEGRAL_TYPE = 0
+		and td.id != 'aaa51cc045ac431c86b0b9a20e895fff'
+		<if test="startTime != null and startTime != ''">
+			and td.lucky_draw_time &gt;= to_date(#{startTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and td.lucky_draw_time &lt;= to_date(#{endTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+	</select>
+	<!-- 中奖人次  人数 -->
+	<select id="getPrizeData"  resultType="java.util.Map">
+		select count(1) prizeDataTimes,count(distinct(td.user_id)) prizeDataNumber from t_dial_lucky_draw td 
+		where 1=1
+		<if test="activityType != null">
+			and td.ACTIVITY_TYPE = #{activityType}
+		</if>
+		and td.INTEGRAL_TYPE = 0
+		and td.id != 'aaa51cc045ac431c86b0b9a20e895fff'
+		<if test="startTime != null and startTime != ''">
+			and td.lucky_draw_time &gt;= to_date(#{startTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and td.lucky_draw_time &lt;= to_date(#{endTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		and td.scoreboard != 1
+	</select>
+	<!-- 分享人次 -->
+	<select id="getEnjoyData" resultType="java.util.Map">
+		select nvl(sum(count_wx+count_APP),0) enjoyDataTimes  from t_share_times ts
+		where 1=1 
+		<if test="startTime != null and startTime != ''">
+			and ts.sharetime &gt;= to_date(#{startTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and ts.sharetime &lt;= to_date(#{endTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		and ts.activity_code = #{activityId}
+	</select>
+	<!-- 大转盘消耗积分 -->
+	<select id="getExpendIntegral" resultType="java.util.Map">
+		select nvl(sum(td.scoreboard),0) expendIntegral from t_dial_lucky_draw td 
+		where 1=1
+		<if test="activityType != null">
+			and td.ACTIVITY_TYPE = #{activityType}
+		</if>
+		and td.INTEGRAL_TYPE = 1
+		and td.id != 'aaa51cc045ac431c86b0b9a20e895fff'
+		<if test="startTime != null and startTime != ''">
+			and td.lucky_draw_time &gt;= to_date(#{startTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and td.lucky_draw_time &lt;= to_date(#{endTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+	</select>	
+	<!--（谢谢） 人次  人数 -->
+	<select id="getThanksCount" resultType="java.util.Map">
+		select count(1) thanksCountTimes, count(distinct(td.user_id)) thanksCountNumber from t_dial_lucky_draw td 
+		where 1=1
+		<if test="activityType != null">
+			and td.ACTIVITY_TYPE = #{activityType}
+		</if>
+		and td.id != 'aaa51cc045ac431c86b0b9a20e895fff'
+		<if test="startTime != null and startTime != ''">
+			and td.lucky_draw_time &gt;= to_date(#{startTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and td.lucky_draw_time &lt;= to_date(#{endTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		and td.scoreboard = 1
+	</select>
+	<!-- 积分的奖励值  人次  人数 -->
+	<select id="getPrizeIntergerCount" resultType="java.util.Map">
+		select nvl(sum(td.scoreboard),0) count, count(1) countTimes, count(distinct(td.user_id)) countNumber from t_dial_lucky_draw td 
+		where 1=1
+		and td.ACTIVITY_TYPE = 1
+		and td.id != 'aaa51cc045ac431c86b0b9a20e895fff'
+		<if test="startTime != null and startTime != ''">
+			and td.lucky_draw_time &gt;= to_date(#{startTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and td.lucky_draw_time &lt;= to_date(#{endTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		and td.scoreboard = #{scoreBoard}
+	</select>
+	<!-- 非谢谢 非积分  奖励值  人次 人数 -->
+	<select id="getOtherCount" resultType="java.util.Map">
+		select count(1) count, count(1) countTimes, count(distinct(td.user_id)) countNumber from t_dial_lucky_draw td
+		where 1=1
+		<if test="activityType != null">
+			and td.ACTIVITY_TYPE = #{activityType}
+		</if>
+		and td.id != 'aaa51cc045ac431c86b0b9a20e895fff'
+		<if test="startTime != null and startTime != ''">
+			and td.lucky_draw_time &gt;= to_date(#{startTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and td.lucky_draw_time &lt;= to_date(#{endTime},'yyyy-MM-dd hh24:mi:ss')
+		</if>
+		and td.scoreboard = #{scoreBoard}
+	</select>
+	<!-- 福利券发放数量,发放人数 -->
+	<select id="getCouponCount" resultType="java.util.Map">
+		select count(1) couponCounts,count(distinct(tug.mobile)) couponUserCounts from t_user_gift tug 
+		where 1=1
+		<if test="startTime != null and startTime != ''">
+			and tug.create_time &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and tug.create_time &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="data != 0">
+			and tug.status = #{data}
+		</if>
+		and tug.gift_id = 'vvv3137af2a349d38833b64687821uyt'
+	</select>
+
+	<select id="getCouponCountV2" resultType="java.util.Map">
+		select count(1) couponCounts,count(distinct(tug.mobile)) couponUserCounts
+		from t_user_gift tug
+		<if test="data == 2">
+		LEFT join t_order_gift_detail g  on (g.gift_id=tug.id)
+		LEFT  JOIN  t_order_detail od on od.order_no=g.order_no
+		</if>
+		where 1=1
+		<if test="startTime != null and startTime != ''">
+			and tug.create_time &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and tug.create_time &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="data != 0">
+			and tug.status = #{data}
+		</if>
+		<if test="data == 2">
+			and od.status in (0,1,2,3,4)
+		</if>
+		<if test="giftId!=null and giftId != ''">
+			and tug.gift_id =#{giftId}
+		</if>
+		<if test="giftId==null">
+			and tug.gift_id in ('vvv3137af2a349d38833b6468785yuan','vvv3137af2a349d38833b6468720yuan','vvv3137af2a349d38833b6468750yuan')
+		</if>
+
+	</select>
+	<select id="getOrderCouponPastPrice" resultType="java.util.Map">
+		select nvl(sum(od.BUY_NUM*od.EXCHANGE_PRICE),0) price
+		from t_order_detail od WHERE od.order_no in (
+		SELECT DISTINCT(g.order_no) from
+		t_order_gift_detail g
+		join t_user_gift ug on (g.gift_id=ug.id)
+		where ug.status='2'
+		<if test="giftId!=null and giftId != ''">
+			and ug.gift_id=#{giftId}
+		</if>
+		<if test="giftId==null">
+			and ug.gift_id in
+			('vvv3137af2a349d38833b6468785yuan','vvv3137af2a349d38833b6468720yuan','vvv3137af2a349d38833b6468750yuan')
+		</if>
+		)
+		<if test="startTime != null and startTime != ''">
+			and od.create_time &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and od.create_time &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		and od.status in (0,1,2,3,4)
+	</select>
+	<select id="getLuckDrawCount" resultType="java.util.Map">
+		select   nvl(count(1),0) counts,
+			      nvl(count(distinct(USER_ID)),0) countUser,
+				  nvl(sum(SCOREBOARD),0)  SCOREBOARD
+		from T_DIAL_LUCKY_DRAW
+		where ACTIVITY_TYPE='4'
+		<if test="startTime != null and startTime != ''">
+			and LUCKY_DRAW_TIME &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and LUCKY_DRAW_TIME &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="type==0">
+			and ( INTEGRAL_TYPE='1' or IS_FREE!='0')
+		</if>
+		<if test="type==1">
+			AND IS_USING_INTEGRAL='1' AND INTEGRAL_TYPE='1'
+		</if>
+	</select>
+	<select id="getIntegralSum" resultType="java.util.Map">
+		SELECT nvl(sum(point),0) point
+		 FROM T_INTEGRAL_RECORD WHERE LX='41'  AND SYSFROM ='XH_ZHB'
+		<if test="startTime != null and startTime != ''">
+			and CREATE_TIME &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and CREATE_TIME &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+	</select>
+
+
+	<select id="getCouponCountAdvance" resultType="java.util.Map">
+		select count(distinct(tug.id)) couponCounts,count(distinct(tug.mobile)) couponUserCounts
+		from t_user_gift tug
+		<if test="data == 2">
+		join t_order_gift_detail g on (g.gift_id=tug.id)
+		join t_order_detail od on od.order_no=g.order_no
+		</if>
+		where  1=1
+		<if test="data==2">
+			and od.status in (0,1,2,3,4)
+		</if>
+		<if test="startTime != null and startTime != ''">
+			and tug.create_time &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and tug.create_time &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="data != 0">
+			and tug.status = #{data}
+		</if>
+		<if test="giftId!=null and giftId != '' ">
+			and tug.gift_id =#{giftId}
+		</if>
+		<if test="giftId==null">
+			and tug.gift_id in ('vvv3137af2a349d38833b64year5yuan','vvv3137af2a349d38833b4year15yuan','vvv3137af2a349d38833b4year30yuan','vvv3137af2a349d38833b4year50yuan')
+		</if>
+
+	</select>
+
+
+	<select id="getAdvanceSum" resultType="java.util.Map">
+		select   nvl(count(1),0) counts,
+		nvl(count(distinct(USER_ID)),0) countUser,
+		nvl(sum(SCOREBOARD),0)  SCOREBOARD
+		from T_DIAL_LUCKY_DRAW
+		where ACTIVITY_TYPE=#{type}
+		<if test="startTime != null and startTime != ''">
+			and LUCKY_DRAW_TIME &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and LUCKY_DRAW_TIME &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="freeType==1">
+			and  INTEGRAL_TYPE='1'
+		</if>
+	</select>
+	<select id="getShares" resultType="java.util.Map">
+		select nvl(count(*),0) count,nvl(count(distinct(MOBILE)),0)  discount
+		from T_USRE_GIFT_TIMES where SHARE_DAY is not null
+		<if test="startTime != null and startTime != ''">
+			and CREATE_TIME &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and CREATE_TIME &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+	</select>
+	<select id="getAdvanceIntegralRecord" resultType="java.util.Map">
+		SELECT nvl(count(1),0) count,nvl(count(distinct(USERID)),0)  discount
+		from T_INTEGRAL_RECORD
+		where lx=#{lx}
+		<if test="startTime!=null and startTime!=''">
+			and CREATE_TIME  &gt;=to_date(#{startTime},'yyyy-MM-dd HH24:mi:ss')
+		</if>
+		<if test="endTime!=null and endTime!=''">
+			and CREATE_TIME  &lt;=to_date(#{endTime},'yyyy-MM-dd HH24:mi:ss')
+		</if>
+
+	</select>
+	<select id="getAdvance2018Integral" resultType="java.util.Map">
+		select nvl(sum(cash),0) cash from
+		(select nvl(nvl(sum(od.pay_cash),0)+nvl(sum(cd.used_cash),0),0) cash
+		from t_order_detail od
+		left join t_order_card_detail cd on cd.ORDER_NO=od.order_no
+		where od.order_no in (
+		select o.order_no from T_YEAR_GOOD yg
+		inner join t_order o on yg.ORDER_NO_MAIN=o.ORDER_NO_MAIN
+		where  od.status in (1,2)
+		<if test="startTime!=null and startTime!=''">
+			and yg.create_time   &gt;=to_date(#{startTime},'yyyy-MM-dd HH24:mi:ss')
+		</if>
+		<if test="endTime!=null and endTime!=''">
+		and  yg.create_time  &lt;=to_date(#{endTime},'yyyy-MM-dd HH24:mi:ss')
+			</if>
+		)
+		group by od.order_no)
+	</select>
+
+	<select id="getOrderCouponPastPriceAdvance" resultType="java.util.Map">
+		select nvl(sum(od.BUY_NUM*od.EXCHANGE_PRICE),0) price from t_order_detail od
+		join t_order_gift_detail g on od.order_no=g.order_no
+		join t_user_gift ug on (g.gift_id=ug.id)
+		where ug.status='2' and od.status in (0,1,2,3,4)
+		<if test="startTime != null and startTime != ''">
+			and ug.create_time &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and ug.create_time &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="giftId!=null and giftId != ''">
+			and ug.gift_id=#{giftId}
+		</if>
+		<if test="giftId==null">
+			and ug.gift_id in ('vvv3137af2a349d38833b64year5yuan','vvv3137af2a349d38833b4year15yuan','vvv3137af2a349d38833b4year30yuan','vvv3137af2a349d38833b4year50yuan')
+		</if>
+	</select>
+	<select id="getCouponGetCollarRed" resultType="java.util.Map">
+		select count(distinct(tug.id)) couponCounts,count(distinct(tug.mobile)) couponUserCounts
+		from t_user_gift tug
+		<if test="data == 2">
+			join t_order_gift_detail g on (g.gift_id=tug.id)
+			join t_order_detail od on od.order_no=g.order_no
+		</if>
+		where  1=1
+		<if test="data==2">
+			and od.status in (0,1,2,3,4)
+		</if>
+		<if test="startTime != null and startTime != ''">
+			and tug.create_time &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and tug.create_time &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="data != 0">
+			and tug.status = #{data}
+		</if>
+		<if test="giftId!=null and giftId != '' ">
+			and tug.gift_id =#{giftId}
+		</if>
+		<if test="giftId==null">
+			and tug.gift_id in ('vvv3137a201849d38833b6468785yuan','vvv3137a201849d38833b6468715yuan','vvv3137a201849d38833b6468720yuan','vvv3137a201849d38833b6468750yuan')
+		</if>
+
+	</select>
+
+
+	<select id="getCouponGetCollar315mini" resultType="java.util.Map">
+		select count(distinct(tug.id)) couponCounts,count(distinct(tug.mobile)) couponUserCounts
+		from t_user_gift tug
+		<if test="data == 2">
+			join t_order_gift_detail g on (g.gift_id=tug.id)
+			join t_order_detail od on od.order_no=g.order_no
+		</if>
+		where  1=1
+		<if test="data==2">
+			and od.status in (0,1,2,3,4)
+		</if>
+		<if test="startTime != null and startTime != ''">
+			and tug.create_time &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and tug.create_time &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="data != 0">
+			and tug.status = #{data}
+		</if>
+		<if test="giftId!=null and giftId != '' ">
+			and tug.gift_id =#{giftId}
+		</if>
+		<if test="giftId==null">
+			and tug.gift_id in ('vvv3137a231549d38833b6468710yuan','vvv3137a231549d38833b6468725yuan','vvv3137a231549d38833b6468745yuan','vvv3137a231549d38833b6468778yuan')
+		</if>
+
+	</select>
+
+	<select id="getOrderCouponPastPriceAdvanceByGetCollarRed" resultType="java.util.Map">
+		select nvl(sum(od.BUY_NUM*od.EXCHANGE_PRICE),0) price from t_order_detail od
+		join t_order_gift_detail g on od.order_no=g.order_no
+		join t_user_gift ug on (g.gift_id=ug.id)
+		where ug.status='2' and od.status in (0,1,2,3,4)
+		<if test="startTime != null and startTime != ''">
+			and ug.create_time &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and ug.create_time &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="giftId!=null and giftId != ''">
+			and ug.gift_id=#{giftId}
+		</if>
+		<if test="giftId==null">
+			and ug.gift_id in ('vvv3137a201849d38833b6468785yuan','vvv3137a201849d38833b6468715yuan','vvv3137a201849d38833b6468720yuan','vvv3137a201849d38833b6468750yuan')
+		</if>
+	</select>
+
+	<select id="getOrderCouponPastPriceAdvanceByGet315mini" resultType="java.util.Map">
+		select nvl(sum(od.BUY_NUM*od.EXCHANGE_PRICE),0) price from t_order_detail od
+		join t_order_gift_detail g on od.order_no=g.order_no
+		join t_user_gift ug on (g.gift_id=ug.id)
+		where ug.status='2' and od.status in (0,1,2,3,4)
+		<if test="startTime != null and startTime != ''">
+			and ug.create_time &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and ug.create_time &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="giftId!=null and giftId != ''">
+			and ug.gift_id=#{giftId}
+		</if>
+		<if test="giftId==null">
+			and ug.gift_id in ('vvv3137a231549d38833b6468710yuan','vvv3137a231549d38833b6468725yuan','vvv3137a231549d38833b6468745yuan','vvv3137a231549d38833b6468778yuan')
+		</if>
+	</select>
+
+	<select id="getPlayGamesTotal" resultType="java.util.Map">
+		select nvl(count(1),0) count  ,nvl(count(DISTINCT mobile),0)  discou
+		from t_activity_rank
+		where activity_no = #{activityId}
+		<if test="startTime != null and startTime != ''">
+			and create_time &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+		<if test="endTime != null and endTime != ''">
+			and  create_time &lt;= to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+		</if>
+	</select>
+</mapper>

@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 客户服务对账单接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.channelanalysis.ChannelAnalysisDao">	
+	
+	<select id="getOrderSum" resultType="com.zhb.dataAnalysis.marketing.beans.ChannelDataAnalysis">
+		select ch.channel_id channelId,ch.channel_name channelName,nvl(tp.orders,0)orders,nvl(tp.amounts,0)amounts,nvl(tp.actualPay,0) actualPay 
+		from t_channel ch
+		left join (
+		    select o.bussinesschannel,count(od.order_no) orders,sum(od.buy_num*od.single_points/200)amounts,
+		    sum(pay_cash) actualPay
+		    from t_order o,t_order_detail od
+		    where o.order_no = od.order_no
+		    <if test="channelData != null">
+		    	<if test="channelData.date != null">
+		    		and trunc(o.create_time,'dd') = trunc(#{channelData.date},'dd')
+		    	</if>
+		    	<if test="channelData.channelId != null and channelData.channelId != ''">
+		    		and o.bussinesschannel = #{channelData.channelId} <!--渠道名称-->
+		    	</if>
+		    </if>
+		    and o.bussinesschannel is not null
+		    group by o.bussinesschannel having 1=1
+		    <!--追加查询条件-->
+		    <if test="channelData != null">
+		    	<!-- 订单数 -->
+				<if test="channelData.orderMin != null">
+					and count(od.order_no) &gt;= #{channelData.orderMin} 	
+				</if>
+				<if test="channelData.orderMax != null">
+					and count(od.order_no) &lt;= #{channelData.orderMax}
+				</if>
+				<!---订单金额 -->
+				<if test="channelData.amountsMin != null">
+					and sum(od.buy_num*od.single_points/200) &gt;= #{channelData.amountsMin}
+				</if>
+				<if test="channelData.amountsMax != null">
+					and sum(od.buy_num*od.single_points/200) &lt;= #{channelData.amountsMax}
+				</if>
+				<!--实际支付金额 -->
+				<if test="channelData.actualPayMin != null">
+					and sum(pay_cash) &gt;= #{channelData.actualPayMin}
+				</if>
+				<if test="channelData.actualPayMax != null">
+					and sum(pay_cash) &lt;= #{channelData.actualPayMax}
+				</if>
+		    </if>
+		) tp on ch.channel_id = tp.bussinesschannel
+		<!--追加查询条件-->
+		<if test="channelData != null and channelData.channelId != null and channelData.channelId != ''">
+			where ch.channel_id = #{channelData.channelId}
+		</if>
+		order by ch.channel_id
+	</select>
+	
+	<!-- 复购用户数 -->
+	<select id="getRepeatBuyers" resultType="com.zhb.dataAnalysis.marketing.beans.ChannelDataAnalysis">
+		select ch.channel_id channelId,ch.channel_name channelName,nvl(tp.userC,0)reBuyers from t_channel ch
+		left join (
+		      select count(user_id)userC,bussinesschannel from (
+			          select nvl(count(o.order_no),0)每个用户的订单数,o.bussinesschannel,o.user_id
+			          from t_order o,t_user_info u
+			          where u.id = o.user_id
+			         <if test="channelId != null and channelId != ''">
+			          		and u.bussinesschannel = #{channelId}		          		
+			          </if>
+			          <if test="date != null">
+			          		and trunc(u.create_time,'dd') = trunc(#{date},'dd')
+			          </if>		          
+			          and o.bussinesschannel is not null
+			          group by o.bussinesschannel,o.user_id
+			          having count(o.order_no) >= 2 
+		      ) tmp  group by bussinesschannel having 1=1
+		      <!--复购用户数-->
+		      <if test="reBuyersMin != null">
+		      		and count(user_id) &gt;= #{reBuyersMin}
+		      </if>
+		      <if test="reBuyersMax != null">
+		      		and count(user_id) &lt;= #{reBuyersMax}
+		      </if>		      
+		) tp on tp.bussinesschannel = ch.channel_id
+		<!-- 追加查询条件 -->
+		<if test="channelId != null and channelId != ''">
+			where ch.channel_id = #{channelId} 
+		</if>
+		order by ch.channel_id
+	</select>
+	
+	<!-- 注册用户数 -->
+	<select id="getRegisterUser" resultType="com.zhb.dataAnalysis.marketing.beans.ChannelDataAnalysis">
+		select ch.channel_id channelId,ch.channel_name channelName,nvl(tp.userC,0)registers from t_channel ch
+		left join (
+		    select count(u.id)userC,u.bussinesschannel
+		    from t_user_info u
+		    where 1=1
+		    <if test="channelId != null and channelId != ''">
+		    	and u.bussinesschannel = #{channelId}
+		    </if>	    
+		    	and u.bussinesschannel is not null
+		    <if test="date != null">
+		    	and trunc(u.create_time) = trunc(#{date},'dd')
+		    </if>		    
+		    group by u.bussinesschannel
+		    having 1=1
+		    <if test="registerMin != null">
+		    	and count(u.id) &gt;= #{registerMin}	
+		    </if>
+		    <if test="registerMax != null">
+		    	and count(u.id) &lt;= #{registerMax}
+		    </if>		    
+		) tp on tp.bussinesschannel = ch.channel_id
+		<!-- 追加查询条件 -->
+		<if test="channelId != null and channelId != ''">
+			where ch.channel_id = #{channelId}
+		</if>
+		order by ch.channel_id
+	</select>
+	
+	<!-- 获取某个时间段内 订单数,订单总金额,实际支付总金额 -->
+	<select id="getAboutOrderSum" resultType="java.util.Map">
+		select sum(orders) orders,sum(amounts) amounts,sum(actualPay) actualPay from (
+		select count(od.order_no) orders,sum(od.buy_num*od.single_points/200) amounts,sum(pay_cash) actualPay
+		    from t_order o,t_order_detail od
+		    where o.order_no = od.order_no
+		    <if test="channelData != null">
+		    	<if test="channelData.startTime != null and channelData.endTime != null">
+		    		and trunc(o.create_time,'dd') between to_date(#{channelData.startTime},'yyyy/MM/dd') and to_date(#{channelData.endTime},'yyyy/MM/dd')
+		    	</if>
+		    	<if test="channelData.channelId != null and channelData.channelId != ''">
+		    		and o.bussinesschannel = #{channelData.channelId} <!--渠道名称-->
+		    	</if>
+		    </if>
+		    and o.bussinesschannel is not null
+		    group by o.bussinesschannel having 1=1
+		    <!--追加查询条件-->
+		    <if test="channelData != null">
+		    	<!-- 订单数 -->
+				<if test="channelData.orderMin != null">
+					and count(od.order_no) &gt;= #{channelData.orderMin} 	
+				</if>
+				<if test="channelData.orderMax != null">
+					and count(od.order_no) &lt;= #{channelData.orderMax}
+				</if>
+				<!---订单金额 -->
+				<if test="channelData.amountsMin != null">
+					and sum(od.buy_num*od.single_points/200) &gt;= #{channelData.amountsMin}
+				</if>
+				<if test="channelData.amountsMax != null">
+					and sum(od.buy_num*od.single_points/200) &lt;= #{channelData.amountsMax}
+				</if>
+				<!--实际支付金额 -->
+				<if test="channelData.actualPayMin != null">
+					and sum(pay_cash) &gt;= #{channelData.actualPayMin}
+				</if>
+				<if test="channelData.actualPayMax != null">
+					and sum(pay_cash) &lt;= #{channelData.actualPayMax}
+				</if>
+		    </if>
+		)    
+	</select>
+	
+	<select id="getReBuyers" resultType="java.util.Map">
+			select count(user_id) reBuyers from (
+			          select nvl(count(o.order_no),0)每个用户的订单数,o.bussinesschannel,o.user_id
+			          from t_order o,t_user_info u
+			          where u.id = o.user_id
+			         <if test="channelId != null and channelId != ''">
+			          		and u.bussinesschannel = #{channelId}		          		
+			          </if>
+			          <if test="startTime != null and endTime != null">
+			          		and trunc(u.create_time,'dd') between to_date(#{startTime},'yyyy/MM/dd') and to_date(#{endTime},'yyyy/MM/dd')
+			          </if>		          
+			          and o.bussinesschannel is not null
+			          group by o.bussinesschannel,o.user_id
+			          having count(o.order_no) >= 2 
+		      ) tmp  group by bussinesschannel having 1=1
+		      <!--复购用户数-->
+		      <if test="reBuyersMin != null">
+		      		and count(user_id) &gt;= #{reBuyersMin}
+		      </if>
+		      <if test="reBuyersMax != null">
+		      		and count(user_id) &lt;= #{reBuyersMax}
+		      </if>	
+	</select>
+	
+	<select id="getRegisterUsers" resultType="java.util.Map">
+		select count(u.id) registers
+		    from t_user_info u
+		    where 1=1
+		    <if test="channelId != null and channelId != ''">
+		    	and u.bussinesschannel = #{channelId}
+		    </if>	    
+		    	and u.bussinesschannel is not null
+		    <if test="startTime != null and endTime != null">
+		    	and trunc(u.create_time) between to_date(#{startTime},'yyyy/MM/dd') and to_date(#{endTime},'yyyy/MM/dd')
+		    </if>		    
+		    group by u.bussinesschannel
+		    having 1=1
+		    <if test="registerMin != null">
+		    	and count(u.id) &gt;= #{registerMin}	
+		    </if>
+		    <if test="registerMax != null">
+		    	and count(u.id) &lt;= #{registerMax}
+		    </if>
+	</select>
+	
+	<select id="getChannelAll" resultType="java.util.Map">
+		select channel_id channelId,channel_name channelName from t_channel where status != 3
+	</select>
+</mapper>

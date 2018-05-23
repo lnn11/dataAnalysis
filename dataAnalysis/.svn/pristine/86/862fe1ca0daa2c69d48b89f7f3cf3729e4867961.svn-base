@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 订单接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.marketing.SilkActivityDao">
+	<!-- 丝路情深  spu SKU -->
+	<select id="getSilkSPUSKUData" resultType="java.util.Map">
+		<if test="data==1">
+	        select count(distinct(tp.product_id)) productId,count(distinct(tpd.product_detail_id)) productDetailId from t_product tp
+			inner join t_product_detail tpd on tp.product_id = tpd.product_id
+			inner join t_order_detail tod on tod.product_detail_id = tpd.product_detail_id 
+			inner join t_order tor on tor.order_no = tod.order_no 
+			      where
+			        tod.status in (0,1,2)   
+			        and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+			        and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+			        and tod.activity_no = #{activityId} 
+			        and tod.is_lower != 1  
+			        and tor.is_delete = 0
+			        <if test="orderSource != null and orderSource != ''">
+				        and tor.order_source = #{orderSource}
+			        </if>
+			        <if test="orderSource == ''">
+			        	and tor.order_source != '1' and tor.order_source != '2'
+			        </if>
+        </if>
+		<if test="data==2">
+	        select count(distinct(tp.product_id)) productId,count(distinct(tpd.product_detail_id)) productDetailId  from (
+			select nvl(sum(tod.buy_num),0) buyNum,tor.order_no_main  from t_order tor
+			inner join t_order_detail tod on tor.order_no = tod.order_no 
+			      where
+			        tod.status in (0,1,2)   
+			        and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+			        and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+			        and tod.activity_no = #{activityId} 
+			        and tod.is_lower != 1  
+			        and tor.is_delete = 0
+			       
+			        <if test="orderSource != null and orderSource != ''">
+				        and tor.order_source = #{orderSource}
+			        </if>
+			        <if test="orderSource == ''">
+			        	and tor.order_source != '1' and tor.order_source != '2'
+			        </if>
+			         group by tor.order_no_main
+			) a ,t_order o, t_order_detail d, t_product tp,t_product_detail tpd 
+			where a.order_no_main = o.order_no_main and o.order_no = d.order_no and d.product_detail_id = tpd.product_detail_id 
+			and tp.product_id = tpd.product_id and a.buyNum = 1
+        </if>
+        <if test="data==3">
+	        select count(distinct(tp.product_id)) productId,count(distinct(tpd.product_detail_id)) productDetailId  from (
+			select nvl(sum(tod.buy_num),0) buyNum,tor.order_no_main  from t_order tor
+			inner join t_order_detail tod on tor.order_no = tod.order_no 
+			      where
+			        tod.status in (0,1,2)   
+			        and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+			        and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+			        and tod.activity_no = #{activityId} 
+			        and tod.is_lower != 1  
+			        and tor.is_delete = 0
+			       
+			        <if test="orderSource != null and orderSource != ''">
+				        and tor.order_source = #{orderSource}
+			        </if>
+			        <if test="orderSource == ''">
+			        	and tor.order_source != '1' and tor.order_source != '2'
+			        </if>
+			         group by tor.order_no_main
+			) a ,t_order o, t_order_detail d, t_product tp,t_product_detail tpd 
+			where a.order_no_main = o.order_no_main and o.order_no = d.order_no and d.product_detail_id = tpd.product_detail_id 
+			and tp.product_id = tpd.product_id and a.buyNum &gt;= 2
+        </if>
+	</select>
+	<!-- 丝路情深   主订单  子订单   活动参与人数 -->
+	<select id="getSilkOrderData" resultType="java.util.Map">
+		select count(distinct(a.order_no_main)) orderNoMain,nvl(sum(a.orderNo),0) orderNo,count(distinct(a.user_id)) userId from(
+		select nvl(sum(tod.buy_num),0) buyNum, tor.order_no_main, count(tod.order_no) orderNo,tor.user_id from t_order tor
+		inner join t_order_detail tod on tor.order_no = tod.order_no
+		      where
+		        tor.is_delete = 0
+		        and tor.status in (0,1,2)
+		        and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		        and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss') 
+		        and tod.activity_no = #{activityId}  
+		        and tod.is_lower != 1  
+		        <if test="orderSource != null and orderSource != ''">
+			        and tor.order_source = #{orderSource}
+		        </if>
+		        <if test="orderSource == ''">
+		        	and tor.order_source != '1' and tor.order_source != '2'
+		        </if>
+		        group by tor.order_no_main,tor.user_id
+		) a 
+		<where>
+			<if test="data==2">
+		        a.buyNum = 1 
+	        </if>
+	        <if test="data==3">
+		        a.buyNum &gt;= 2 
+	        </if>
+		</where>
+	</select>
+	<!-- 丝路情深   现金支付    积分支付    福利券支付  总销量 -->
+	<select id="getSilkPayData" resultType="java.util.Map">
+		select nvl(sum(a.payCash),0) payCash,nvl(sum(a.payPoints),0) payPoints,nvl(sum(a.specialPoints),0) specialPoints,nvl(sum(a.buyNum),0) buyNum from(
+		select nvl(sum(tod.buy_num),0) buyNum, nvl(sum(tod.pay_cash),0) payCash,nvl(sum(tod.pay_points),0) payPoints,nvl(sum(tod.special_points),0) specialPoints from t_order_detail tod
+		inner join t_order tor on tod.order_no = tor.order_no
+		      where 
+		        tor.is_delete = 0
+		        and tod.status in (0,1,2)
+		        and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		        and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		        and tod.activity_no = #{activityId}
+		        and tod.is_lower != 1 
+		        <if test="orderSource != null and orderSource != ''">
+			        and tor.order_source = #{orderSource}
+		        </if>
+		        <if test="orderSource == ''">
+		        	and tor.order_source != '1' and tor.order_source != '2'
+		        </if> 
+		    group by tor.order_no_main
+		) a 
+		<where>
+			<if test="data==2">
+		        a.buyNum = 1 
+	        </if>
+	        <if test="data==3">
+		        a.buyNum &gt;= 2 
+	        </if>
+		</where>
+	</select>
+	<!-- 丝路情深   重复参与人数 -->
+	<select id="getSilkRepeData" resultType="java.util.Map">
+		select count(a.num) userNum from(
+		select count(b.user_id) num from(
+   		 select  nvl(sum(tod.buy_num),0) buynum,tor.user_id  from t_order tor
+		    inner join t_order_detail tod on tor.order_no = tod.order_no
+		    inner join t_user_info tui on tui.id = tor.user_id 
+		    where
+		      tor.is_delete = 0
+		      and tor.status in (0,1,2)
+		      and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+		      and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+		      and tod.activity_no = #{activityId}
+		      and tod.is_lower != 1  
+		        <if test="orderSource != null and orderSource != ''">
+			        and tor.order_source = #{orderSource}
+		        </if>
+		        <if test="orderSource == ''">
+		        	and tor.order_source != '1' and tor.order_source != '2'
+		        </if> 
+		        group by tor.order_no_main,tor.user_id
+			) b 
+			<where>
+				<if test="data==2">
+		        and b.buynum = 1 
+		       </if>
+		       <if test="data==3">
+		        and b.buynum &gt;= 2 
+		       </if>
+			</where>
+			group by b.user_id
+			) a 
+			where 
+			 a.num &gt;= 2
+	</select>
+	<!-- 新增人数 -->
+	<select id="getSilkNewUserData" resultType="java.util.Map">
+		select count(tui.id) tuiId from t_user_info tui where
+	       	  tui.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') 
+	      and tui.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+	</select>
+	
+	<!-- 杭州三绝   母亲节活动   ~~   spu SKU  -->
+	<select id="getSilksSPUSKUData" resultType="java.util.Map">
+		select count(distinct(tp.product_id)) productId,count(distinct(tpd.product_detail_id)) productDetailId from t_product tp
+		inner join t_product_detail tpd on tp.product_id = tpd.product_id
+		inner join t_order_detail tod on tod.product_detail_id = tpd.product_detail_id 
+		inner join t_order tor on tor.order_no = tod.order_no 
+		      where
+		        tod.status in (0,1,2)   
+		         <if test="startTime != null and startTime != ''">
+			    	and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+			    </if>
+			    <if test="endTime != null and endTime != ''">
+					and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+				</if>
+		        and tod.activity_no = #{activityId} 
+		        and tod.is_lower = 1  
+		        and tor.is_delete = 0
+		        <if test="orderSource != null and orderSource != ''">
+			        and tor.order_source = #{orderSource}
+		        </if>
+		        <if test="orderSource == ''">
+		        	and tor.order_source != '1' and tor.order_source != '2'
+		        </if>
+	</select>
+	<!-- 杭州三绝     母亲节活动   ~~    主订单  子订单   活动参与人数       -->
+	<select id="getSilksOrderData" resultType="java.util.Map">
+		select count(distinct(tor.order_no_main)) orderNoMain,count(distinct(tod.order_no)) orderNo,count(distinct(tor.user_id)) userId from t_order tor
+		inner join t_order_detail tod on tor.order_no = tod.order_no
+		      where
+		        tor.is_delete = 0
+		        and tod.status in (0,1,2)
+		         <if test="startTime != null and startTime != ''">
+			    	and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+			    </if>
+			    <if test="endTime != null and endTime != ''">
+					and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+				</if>
+		        and tod.activity_no = #{activityId}  
+		        and tod.is_lower = 1  
+		        <if test="orderSource != null and orderSource != ''">
+			        and tor.order_source = #{orderSource}
+		        </if>
+		        <if test="orderSource == ''">
+		        	and tor.order_source != '1' and tor.order_source != '2'
+		        </if>
+	</select>
+	<!-- 杭州三绝   母亲节活动  ~~  现金支付    积分支付    福利券支付  总销量 -->
+	<select id="getSilksPayData" resultType="java.util.Map">
+		select nvl(sum(tod.pay_cash),0) payCash,nvl(sum(tod.pay_points),0) payPoints,nvl(sum(tod.special_points),0) specialPoints,nvl(sum(tod.buy_num),0) buyNum from t_order_detail tod
+		inner join t_order tor on tod.order_no = tor.order_no
+		      where 
+		        tor.is_delete = 0
+		        and tod.status in (0,1,2)
+		         <if test="startTime != null and startTime != ''">
+			    	and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+			    </if>
+			    <if test="endTime != null and endTime != ''">
+					and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+				</if>
+		        and tod.activity_no = #{activityId}
+		        and tod.is_lower = 1 
+		        <if test="orderSource != null and orderSource != ''">
+			        and tor.order_source = #{orderSource}
+		        </if>
+		        <if test="orderSource == ''">
+		        	and tor.order_source != '1' and tor.order_source != '2'
+		        </if> 
+	</select>
+	<!-- 杭州三绝   母亲节活动  ~~  重复参与人数 -->
+	<select id="getSilksRepeData" resultType="java.util.Map">
+<!-- 		select count(a.num) userNum from( -->
+<!-- 		    select count(tor.user_id) num from t_order tor -->
+<!-- 		    inner join t_order_detail tod on tor.order_no = tod.order_no -->
+<!-- 		    inner join t_user_info tui on tui.id = tor.user_id  -->
+<!-- 		    where -->
+<!-- 		      tor.is_delete = 0 -->
+<!-- 		      and tor.status in (0,1,2) -->
+<!-- 		      and tor.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') -->
+<!-- 		      and tor.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss') -->
+<!-- 		      and tod.activity_no = #{activityId} -->
+<!-- 		      and tod.is_lower = 1   -->
+<!-- 		        <if test="orderSource != null and orderSource != ''"> -->
+<!-- 			        and tor.order_source = #{orderSource} -->
+<!-- 		        </if> -->
+<!-- 		        <if test="orderSource == ''"> -->
+<!-- 		        	and tor.order_source != '1' and tor.order_source != '2' -->
+<!-- 		        </if>  -->
+<!-- 		    group by tor.user_id -->
+<!-- 		) a where a.num &gt;= 2 -->
+		select count(a.num) userNum from(
+	       select count(b.user_id) num from (
+	        select count(distinct(tor.order_no_main)) num ,tor.user_id from t_order tor
+	        inner join t_order_detail tod on tor.order_no = tod.order_no
+	        inner join t_user_info tui on tui.id = tor.user_id 
+	        where
+	          tor.is_delete = 0
+	          and tor.status in (0,1,2)
+	           <if test="startTime != null and startTime != ''">
+			    	and tod.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss')
+			    </if>
+			    <if test="endTime != null and endTime != ''">
+					and tod.create_time &lt;= to_date(#{endTime},'yyyy-mm-dd hh24:mi:ss')
+				</if>
+	          and tod.activity_no = #{activityId}
+	          and tod.is_lower = 1  
+	          <if test="orderSource != null and orderSource != ''">
+	              and tor.order_source = #{orderSource}
+	            </if>
+	            <if test="orderSource == ''">
+	              and tor.order_source != '1' and tor.order_source != '2'
+	            </if> 
+	        group by tor.order_no_main,tor.user_id
+	       ) b group by b.user_id
+	    ) a where a.num &gt;= 2
+	</select>
+</mapper>

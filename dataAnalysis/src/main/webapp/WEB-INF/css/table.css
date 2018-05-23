@@ -1,0 +1,77 @@
+.outSide{
+	border-top: 64px #199fff solid;border-left: 139px #FFD39B solid;position: relative;color:black;font-size: 13px;
+}
+td{
+	text-align:center;
+}
+.td{
+	border:solid black; border-width:0px 1px 1px 0px;
+}
+.tdspeed{
+	border:solid black; border-width:0px 1px 1px 0px; width:53px; word-wrap:break-word;
+}
+.table{
+	border:solid black; border-width:2px 1px 1px 2px;
+}
+#color{
+	background:#FFE9D5;
+}
+#topB{
+	font-style: normal; position: absolute; top: -3.96923em ! important; left: -60px ! important; width: 60px;
+}
+#bottomB{
+	font-style: normal; position: absolute; top: -2.43076em ! important; font-size: 13px; left: -10.231em ! important; width: 60px;
+}
+#sem{
+	font-style: normal;position: absolute;top: -1.431em !important;top: 1.431em\9 !important;font-size: 13px;left: -11.231em !important;width: 80px;
+}
+#sab{
+	font-style: normal;position: absolute;top: -2.3em !important;top: 1em\9 !important;left:-62px !important;width: 60px;
+}
+#sdiv{
+	border-top: 37px #199fff solid;border-left: 150px #FFD39B solid;position: relative;color: black;font-size: 13px;
+}
+.barCss{
+	position: relative; overflow: hidden; width: 1000px; height: 360px;cursor: default; border: 1px solid #DDDAD6; left: 1px;margin-left:10px;
+}
+.saleBar{
+	width: 1119px;margin-left:9px;height: 500px;border: 1px solid #DDDAD6;position: relative;
+}
+.pieLeft{
+	width: 800px;height: 600px;float: left;border: 1px #DDDAD6 solid;margin-left:10px;
+}
+.pieMarginTB{
+	margin-top: 20px;margin-bottom: 10px;
+}
+.pieRight{
+	width: 800px;height: 600px;float:right;border: 1px #DDDAD6 solid;margin-left:10px;margin-right: 5em;
+}
+#smallTitleDiv{width: 200px;height: 30px;padding-top: 5px;background-color: #D0CDC7;}
+#smallTitleDiv span{font-size: 20px;color: #333333;margin-top: 0px;height:20px;}
+#rightTitleDiv{height: 24px;width:96.9em;background-color: eee;margin-top: -5px;margin-left: -5px;padding-left:5px;padding-top: 5px;border-right: 1px #E7E5E2 solid;border-bottom: 1px #E7E5E2 solid;}
+#rightTitleDiv span{font-size: 16px;}
+#countTime{height: 50px;margin-top:20px;}
+#countTimeOneDiv{float: left;margin-left:680px;}
+#countTimeOneFont{font-size: 14px;}
+#countTimeTwoDiv{float:right;background:#F3F2F0;height:20px;width:70px;padding-top:5px;cursor: pointer;}
+#countTimeTwoFont{font-size: 12px;margin-right:25px;width:14px;color: #70336F;}
+
+#se{
+	font-style: normal;position: absolute;top: -3.031em !important;top: 1.431em\9 !important;font-size: 13px;left: -11.231em !important;width: 80px;
+}
+#sa{
+	font-style: normal;position: absolute;top: -7.3em !important;top: 1em\9 !important;left:-77px !important;width: 60px;
+}
+#sd{
+	border-top: 10em #199fff solid;border-left: 160px #FFD39B solid;position: relative;color: black;font-size: 13px;
+}
+
+#sem1{
+	font-style: normal;position: absolute;top: -1.431em !important;top: 1.431em\9 !important;font-size: 13px;left: -14.231em !important;width: 80px;
+}
+#sab1{
+	font-style: normal;position: absolute;top: -2.3em !important;top: 1em\9 !important;left:-77px !important;width: 60px;
+}
+#sdiv1{
+	border-top: 37px #199fff solid;border-left: 16em #FFD39B solid;position: relative;color: black;font-size: 13px;
+}

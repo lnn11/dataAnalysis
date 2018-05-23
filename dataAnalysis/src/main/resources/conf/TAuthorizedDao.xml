@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 用户接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.shiro.database.TAuthorizedDao">
+	<select id="findUser" resultType="java.util.Map">
+		select id,username,password from t_user where username=#{userName}
+	</select>
+	
+	<select id="getRoleNamesForUser" resultType="java.util.Map">
+		select distinct r.id,r.rolename from t_user_role t,t_role r 
+		where t.roleid=r.id and t.userid = #{userId}
+	</select>
+	
+	<select id="getPermissions" resultType="java.lang.String">
+		select distinct t_url.url from t_role_url,t_url 
+		where t_role_url.urlid = t_url.id
+		and t_url.url is not null
+		and roleid in 
+		<foreach collection="roles" item="itm" open="(" close=")" separator=",">
+			#{itm.id}
+		</foreach>
+	</select>
+</mapper>

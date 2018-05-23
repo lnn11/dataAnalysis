@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 订单接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.marketing.OldInvitationUserActivityDao">
+
+    <select id="getHcoupns" resultType="java.lang.Integer">
+        select nvl(count(*),0)
+        from t_user_gift
+        where gift_id='v8q3137af2a349d38833b64687821uy4' and IS_DELETE='0'
+    </select>
+    <select id="getRegistUsers" resultType="java.lang.Integer" parameterType="java.lang.String">
+        select nvl(count(*),0)
+        from t_user_info
+        where (BUSSINESSCHANNEL!='maker' or BUSSINESSCHANNEL is null)
+        <if test="startTime!=null">
+            AND  CREATE_TIME  &gt; = to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        <if test="endTime!=null">
+            AND CREATE_TIME &lt; =to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+    </select>
+    <select id="getOrdersAndrealPay" resultType="java.util.Map">
+        select nvl(sum(BUY_NUM),0) as orderNum,nvl(sum(pay_cash),0) as realPay
+        from t_order_detail
+        where ACTIVITY_NO in ('ZHB20170001016','ZHB20170001016-2')
+        AND STATUS in ('0','1','2')
+        <if test="startTime!=null">
+            AND CREATE_TIME   &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        <if test="endTime!=null">
+            AND CREATE_TIME  &lt;=to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+    </select>
+
+    <select id="getInviteCodeNum" resultType="java.lang.Integer">
+        select nvl(count(*),0) as inviteCodeNum
+        from t_user_info
+        where (BUSSINESSCHANNEL!='maker' or BUSSINESSCHANNEL is null)
+        <if test="startTime!=null">
+            AND CREATE_TIME   &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        <if test="endTime!=null">
+            AND CREATE_TIME  &lt;=to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+    </select>
+    <select id="getDisInviteCodeNum" resultType="java.lang.Integer">
+        select nvl(count(*),0) as disInviteCodeNum from (
+        select distinct(invite_code)
+        from t_user_info
+        where (BUSSINESSCHANNEL!='maker' or BUSSINESSCHANNEL is null)
+        <if test="startTime!=null">
+            AND CREATE_TIME   &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        <if test="endTime!=null">
+            AND CREATE_TIME  &lt;=to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        )
+    </select>
+    <select id="getFullcutNum"  resultType="java.lang.Integer">
+        select nvl(count(*),0) from t_order_detail o
+        JOIN t_order_gift_detail g on o.order_no=g.order_no
+        JOIN t_user_gift ug on ug.id=g.gift_id
+        where     o.STATUS in ('0','1','2') and ug.gift_id='v8q3137af2a349d38833b64687821uy4'
+        and o.ACTIVITY_NO is not null
+        <if test="startTime!=null">
+            AND o.CREATE_TIME   &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        <if test="endTime!=null">
+            AND o.CREATE_TIME  &lt;=to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+    </select>
+    <select id="getProductTotal" resultType="java.util.Map">
+        SELECT nvl(sum(o.EXCHANGE_PRICE*o.BUY_NUM),0) AS productPoints,nvl(sum(o.PURCHASE_PRICE*o.BUY_NUM),0) as PURCHASEPRICE
+        from t_order_detail o
+        join t_order_gift_detail d on (o.order_no=d.order_no)
+        JOIN t_user_gift ug on ug.id=d.gift_id
+        where
+        o.STATUS in ('0','1','2') and ug.gift_id='v8q3137af2a349d38833b64687821uy4'
+        <if test="startTime!=null">
+            AND o.CREATE_TIME   &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        <if test="endTime!=null">
+            AND o.CREATE_TIME  &lt;=to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+    </select>
+
+    <select id="getFristOrder" resultType="java.util.Map" parameterType="java.lang.String">
+        select nvl(count(*),0) AS orderCount,nvl(sum(od.cash),0) AS cash
+        from t_order od
+        join (
+        select row_number() over(partition by o.user_id order by o.create_time asc) a,o.order_no,o.user_id  from t_order o
+        where 1=1
+        <if test="startTime!=null">
+            AND  o.CREATE_TIME  &gt; = to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        <if test="endTime!=null">
+            AND o.CREATE_TIME &lt; =to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        and o.STATUS in('0','1','2'))oc on (od.order_no=oc.order_no AND oc.a=1)
+        join t_user_info u on(u.id=oc.user_id) where    u.invite_code is not null and u.invite_code != ' '
+        and (u.BUSSINESSCHANNEL!='maker' or u.BUSSINESSCHANNEL is null)
+    </select>
+
+    <select id="getSku" resultType="java.lang.Integer">
+        SELECT nvl(count(distinct(pd.product_detail_id)),0) as skuCount
+        FROM t_order_detail od
+        inner join t_product_detail pd on od.product_detail_id=pd.product_detail_id
+        where od.STATUS in ('0','1','2')
+        <if test="user=='user'" >
+            AND  od.ACTIVITY_NO='ZHB20170001016-2'
+        </if>
+        <if test="user=='one'" >
+            AND  od.ACTIVITY_NO='ZHB20170001016'
+        </if>
+        <if test="startTime!=null">
+            AND od.CREATE_TIME   &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        <if test="endTime!=null">
+            AND od.CREATE_TIME  &lt;=to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+    </select>
+    <select id="getSpu" resultType="java.lang.Integer">
+        select nvl(count(distinct(p.product_id)),0) from t_product p
+        inner join (
+        SELECT distinct(pd.product_detail_id) as product_detail_id,pd.product_id FROM t_order_detail od
+        inner join t_product_detail pd on od.product_detail_id=pd.product_detail_id
+        where od.STATUS in ('0','1','2')
+        <if test="user=='user'" >
+            AND od.ACTIVITY_NO='ZHB20170001016-2'
+        </if>
+        <if test="user=='one'" >
+            AND  od.ACTIVITY_NO='ZHB20170001016'
+        </if>
+        <if test="startTime!=null">
+            AND od.CREATE_TIME   &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        <if test="endTime!=null">
+            AND od.CREATE_TIME  &lt;=to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        ) pdi
+        on p.product_id=pdi.product_id
+    </select>
+
+    <select id="getPayCash" resultType="java.lang.Double">
+        SELECT nvl(sum(d.pay_cash),0.00)
+        FROM t_order_detail d
+        where d.STATUS in ('0','1','2')
+        <if test="user=='user'" >
+            AND  d.ACTIVITY_NO='ZHB20170001016-2'
+        </if>
+        <if test="user=='one'" >
+            AND  d.ACTIVITY_NO='ZHB20170001016'
+        </if>
+        <if test="startTime!=null">
+            AND d.CREATE_TIME   &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        <if test="endTime!=null">
+            AND d.CREATE_TIME  &lt;=to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+    </select>
+    <select id="getOneProductNum" resultType="java.lang.Integer">
+        SELECT nvl(sum(od.buy_num),0)
+        FROM t_order_detail od
+        where od.ACTIVITY_NO='ZHB20170001016' and od.STATUS in ('0','1','2')
+        <if test="startTime!=null">
+            AND od.CREATE_TIME   &gt;= to_date(#{startTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+        <if test="endTime!=null">
+            AND od.CREATE_TIME  &lt;=to_date(#{endTime},'YYYY-MM-DD hh24:mi:ss')
+        </if>
+    </select>
+</mapper>

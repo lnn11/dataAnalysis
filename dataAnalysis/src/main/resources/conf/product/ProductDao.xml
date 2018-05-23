@@ -1,0 +1,563 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!-- 商品接口映射 -->
+<mapper namespace="com.zhb.dataAnalysis.common.repository.database.product.ProductDao">
+
+	<sql id="times">
+		<if test="startTime != null and startTime != ''">
+       		tp.create_time &gt;= to_date(#{startTime},'yyyy-mm-dd hh24:mi:ss') and 
+       </if>
+       <if test="overTime != null and overTime != ''">
+       		tp.create_time &lt;= to_date(#{overTime},'yyyy-mm-dd hh24:mi:ss') and 
+       </if>
+       <if test="startTime == null or startTime == ''">
+       		tp.create_time &gt;= trunc(sysdate,'mm') and 
+       </if>
+       <if test="overTime == null or overTime == ''">
+       		 tp.create_time &lt;= to_date(concat(to_char(trunc(sysdate,'dd'),'yyyy-mm-dd'),' 23:59:59'),'yyyy-mm-dd hh24:mi:ss') and 
+       </if>
+	</sql>
+	
+	<!-- 查询在售商品子商品总数 -->
+	<select id="getProductDetailCount" resultType="int">
+		select 
+			count(distinct tpd.product_detail_id) productNum 
+		from 
+			t_product tp,t_product_detail tpd,t_product_category tpc 
+	     where tp.status = 5 and tp.category_id = tpc.product_category_id and <include refid="times"></include> tpd.product_id in (tp.product_id)
+	</select>
+	
+	<!-- 上架过的子商品总数 -->
+	<select id="getProductDetailCountEd" resultType="int">
+		select count(distinct tpd.product_detail_id) saledSumNum 
+		from t_product tp,t_product_detail tpd,t_product_category tpc  
+		where tp.status in (6,5) and tp.category_id = tpc.product_category_id and <include refid="times"></include> tpd.product_id in (tp.product_id)
+	</select>
+	
+	<!-- 获取一级分类  二级分类  三级分类 -->
+	<select id="getCategory" resultType="java.util.Map">
+		select tpc.product_category_id id, tpc.name name from t_product_category tpc 
+		where 1=1 and tpc.status = 1 and tpc.type = 1
+		<if test="data ==null or data ==''">
+			and tpc.parent_id is null
+		</if>
+		<if test="data != null and data != ''">
+			and tpc.parent_id = #{data}
+		</if>
+	</select>
+	
+	<!-- 获取销量商品排行 -->
+	<select id="getSaleTopRank" resultType="java.util.Map">
+	 SELECT * FROM (
+	   SELECT t.name,SUM(total_num) as sale_num,sum(sal_vol) AS sale_Volume FROM (
+		  SELECT a.total_num,d.supplier_id,d.name,((a.single_points / a.exchange_rate) * total_num) AS sal_vol FROM (
+		   	 SELECT * FROM (
+		            SELECT o.product_name,o.product_detail_id,SUM(buy_num)  AS total_num,
+		            o.single_points,o.exchange_rate,d.user_id
+		            FROM t_order_detail o ,t_order d 
+		            WHERE o.order_no = d.order_no
+		            AND d.status in (0,1,2)
+		              <if test="pro.startDate!=null and pro.startDate!='' ">
+				      	AND o.create_time &gt;= to_date(#{pro.startDate},'yyyy-mm-dd,hh24:mi:ss') 
+				      </if>
+				      <if test="pro.endDate!=null and pro.endDate!='' ">
+				      	 AND o.create_time &lt;= to_date(#{pro.endDate},'yyyy-mm-dd,hh24:mi:ss')
+				      </if>
+		            GROUP BY o.product_name,o.product_detail_id, o.single_points,o.exchange_rate,d.user_id
+		            ORDER BY 3  DESC
+	      	 	)  
+       		 ) a 
+	         inner join t_user_info u on a.user_id in(u.id)  
+		     inner JOIN t_product_detail  b ON a.product_detail_id = b.product_detail_id
+		     inner JOIN t_product d ON b.product_id =d.product_id
+		     <if test="pro.categoryOne == null or pro.categoryOne == '' and pro.brand != null and pro.brand != ''">
+		     	inner join t_product_category tpc on d.brand = tpc.product_category_id
+		     		and tpc.name = #{pro.brand}
+		     </if>
+		     <if test="pro.brand != null and pro.brand != '' and pro.categoryOne != null and pro.categoryOne != ''">
+		     	inner join t_product_category tpc on d.brand = tpc.product_category_id
+		     		and tpc.name = #{pro.brand} and tpc.parent_id = #{pro.categoryOne}
+		     </if>
+		     <if test="pro.brand == null or pro.brand == '' and pro.categoryThree != null and pro.categoryThree != '' and pro.categoryTwo != null and pro.categoryTwo != '' and pro.categoryOne != null and pro.categoryOne != ''">
+		     	and d.category_id = #{pro.categoryThree}
+		     </if>
+		     <if test="pro.categoryThree == null or pro.categoryThree == '' and pro.brand == null or pro.brand =='' and pro.categoryTwo != null and pro.categoryTwo != '' and pro.categoryOne != null and pro.categoryOne != ''">
+		     	inner join t_product_category c on d.category_id = c.product_category_id 
+		     	  and (c.product_category_id = #{pro.categoryTwo} or c.parent_id =  #{pro.categoryTwo})
+		     </if>
+		     <if test="pro.categoryThree == null or pro.categoryThree == '' and pro.categoryTwo == null or pro.categoryTwo == '' and pro.brand == null or pro.brand =='' and pro.categoryOne != null and pro.categoryOne != ''">
+		     	inner join t_product_category c on d.category_id = c.product_category_id  
+		     	inner join t_product_category cc on cc.product_category_id = c.parent_id 
+         		inner join t_product_category tpc on (tpc.product_category_id = cc.parent_id or tpc.product_category_id = c.parent_id) and tpc.product_category_id = #{pro.categoryOne}
+		     </if>
+      	 ) t 
+        GROUP BY t.name
+        ORDER BY 2 DESC
+      )  WHERE ROWNUM &lt;= #{pro.saleNum}  and name is not null
+	</select>
+	
+	<!-- 获取销量额商品排行 -->
+	<select id="getProductSaleTopRank" resultType="java.util.Map">
+	 SELECT * FROM (
+	   SELECT t.name,SUM(total_num) as sale_num,sum(sal_vol) AS sale_Volume FROM (
+		  SELECT a.total_num,d.supplier_id,d.name,((a.single_points / a.exchange_rate) * total_num) AS sal_vol FROM (
+		   	 SELECT * FROM (
+		            SELECT o.product_name,o.product_detail_id,SUM(buy_num)  AS total_num,
+		            o.single_points,o.exchange_rate,d.user_id
+		            FROM t_order_detail o ,t_order d 
+		            WHERE o.order_no = d.order_no
+		            AND d.status in (0,1,2)
+		              <if test="pro.startDate!=null and pro.startDate!='' ">
+				      	AND o.create_time &gt;= to_date(#{pro.startDate},'yyyy-mm-dd,hh24:mi:ss') 
+				      </if>
+				      <if test="pro.endDate!=null and pro.endDate!='' ">
+				      	 AND o.create_time &lt;= to_date(#{pro.endDate},'yyyy-mm-dd,hh24:mi:ss')
+				      </if>
+		            GROUP BY o.product_name,o.product_detail_id, o.single_points,o.exchange_rate,d.user_id
+		            ORDER BY 3  DESC
+	      	 	)  
+       		 ) a 
+	         inner join t_user_info u on a.user_id in(u.id)  
+		     inner JOIN t_product_detail  b ON a.product_detail_id = b.product_detail_id
+		     inner JOIN t_product d ON b.product_id =d.product_id
+		     <if test="pro.categoryOne == null or pro.categoryOne == '' and pro.brand != null and pro.brand != ''">
+		     	inner join t_product_category tpc on d.brand = tpc.product_category_id
+		     		and tpc.name = #{pro.brand}
+		     </if>
+		     <if test="pro.brand != null and pro.brand != '' and pro.categoryOne != null and pro.categoryOne != ''">
+		     	inner join t_product_category tpc on d.brand = tpc.product_category_id
+		     		and tpc.name = #{pro.brand} and tpc.parent_id = #{pro.categoryOne}
+		     </if>
+		     <if test="pro.brand == null or pro.brand == '' and pro.categoryThree != null and pro.categoryThree != '' and pro.categoryTwo != null and pro.categoryTwo != '' and pro.categoryOne != null and pro.categoryOne != ''">
+		     	and d.category_id = #{pro.categoryThree}
+		     </if>
+		     <if test="pro.categoryThree == null or pro.categoryThree == '' and pro.brand == null or pro.brand =='' and pro.categoryTwo != null and pro.categoryTwo != '' and pro.categoryOne != null and pro.categoryOne != ''">
+		     	inner join t_product_category c on d.category_id = c.product_category_id 
+		     	  and (c.product_category_id = #{pro.categoryTwo} or c.parent_id =  #{pro.categoryTwo})
+		     </if>
+		     <if test="pro.categoryThree == null or pro.categoryThree == '' and pro.categoryTwo == null or pro.categoryTwo == '' and pro.brand == null or pro.brand =='' and pro.categoryOne != null and pro.categoryOne != ''">
+		     	inner join t_product_category c on d.category_id = c.product_category_id  
+		     	inner join t_product_category cc on cc.product_category_id = c.parent_id 
+         		inner join t_product_category tpc on (tpc.product_category_id = cc.parent_id or tpc.product_category_id = c.parent_id) and tpc.product_category_id = #{pro.categoryOne}
+		     </if>
+      	 ) t 
+        GROUP BY t.name
+        ORDER BY 3 DESC
+      )  WHERE ROWNUM &lt;= #{pro.saleNum}  and name is not null
+	</select>
+	
+	<!-- 暂时没用 -->
+	<select id="gerSaleTop"  resultType="java.util.Map">
+		select tmp.* from (select tm.*,rownum rn from 
+          (select round(sum(tr.total_integral/tod.exchange_rate),2) sumMoney  from t_order tr,t_order_detail tod,t_supplier t,t_user_info u 
+           where
+               t.status = 3 and 
+               <if test="startDate != null and startDate != ''">
+					tr.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd') and 
+			   </if>
+			   <if test="endDate != null and endDate != ''">
+					tr.create_time &lt;= to_date(concat(#{endDate},' 23:59:59'),'yyyy-mm-dd hh24:mi:ss') and 
+			   </if>
+			   <if test="startDate == null or startDate == ''">
+					tr.create_time &gt;= trunc(sysdate,'mm') and 
+			   </if>
+			   <if test="endDate == null or endDate == ''">
+					 tr.create_time &lt;= to_date(concat(to_char(trunc(sysdate,'dd'),'yyyy-mm-dd'),' 23:59:59'),'yyyy-mm-dd hh24:mi:ss') and 
+			   </if>
+               tr.status in (0,1,2) AND 
+               tod.order_no in (tr.order_no) and 
+               tr.supplier_id in (t.id) and tr.user_id in (u.id)
+               group by 
+               t.name,t.id order by sumMoney)tm where tm.sumMoney &gt; 0) 
+               tmp
+               where rn &lt;=10 
+	</select>
+	
+	<!-- 获取产品类别和销售额、销量 -->
+	<select id="getProductSaleParams" resultType="java.util.Map">
+		SELECT * FROM (
+			SELECT ROWNUM rw,p.*  FROM (
+				 SELECT t.name,SUM(totalNum)  AS totalNum,sum(salVol) AS salVol FROM (
+					SELECT a.totalNum,n.name,(a.single_points * totalNum) AS salVol  FROM (
+					      SELECT o.product_name,o.product_detail_id,SUM(buy_num)  AS totalNum,
+					      o.single_points
+					      FROM t_order_detail o ,t_order d 
+					      WHERE o.order_no = d.order_no
+					      AND d.status in (0,1,2)
+					      <if test="startDate!=null and startDate!='' ">
+					      	AND o.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd,hh24:mi:ss') 
+					      </if>
+					      <if test="endDate!=null and endDate!='' ">
+					      	 AND o.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd,hh24:mi:ss')
+					      </if>
+				          GROUP BY o.product_name,o.product_detail_id, o.single_points
+				          ORDER BY 3  DESC
+				     ) a 
+					     inner JOIN t_product_detail  b ON a.product_detail_id = b.product_detail_id
+					     inner JOIN t_product d ON b.product_id =d.product_id
+					      inner join t_supplier ts on d.supplier_id=ts.id 
+					       <if test="shortName!=null and shortName!=''">
+					      	and	ts.short_name = #{shortName}
+					      </if>
+					     inner JOIN t_product_category p ON d.category_id = p.product_category_id
+					     inner JOIN t_product_category n ON n.product_category_id = p.parent_id
+					) t
+				GROUP BY t.name
+				ORDER BY t.name
+			)p)m
+			where 1=1
+       		and m.rw &gt; (#{currentPage}-1)*#{pageSize}
+       		and m.rw &lt;= (#{pageSize}*#{currentPage})
+	</select>
+	<!-- 统计上架商品的spu,sku总数 -->
+	<select id="getProductCateList" resultType="java.util.Map">
+		 select tpca.name tname,c.name pname,sum(c.tpTotalNum) tpTotalNum,sum(c.tpdTotalNum) tpdTotalNum from ( 
+	       select count(tp.product_id) tpTotalNum ,tp.category_id,tpc.name,tpc.parent_id,sum(tpdTotalNum) tpdTotalNum from (
+	         select tpd.product_id, count(distinct(tod.product_detail_id)) tpdTotalNum from t_order tor 
+	         inner join t_order_detail tod 
+	           on tor.order_no=tod.order_no
+	           AND tor.status in (0,1,2)
+               <if test="startDate!=null and startDate!='' ">
+                 AND tod.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd,hh24:mi:ss')
+               </if>
+			  <if test="endDate!=null and endDate!='' ">
+                  AND tod.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd,hh24:mi:ss')
+               </if>
+	           and tor.is_delete=0
+	         inner join t_product_detail tpd on tpd.product_detail_id=tod.product_detail_id
+	         group by tpd.product_id
+	       ) a inner join t_product tp on tp.product_id=a.product_id
+	       inner join t_product_category tpc on tpc.product_category_id=tp.category_id
+	       inner join t_supplier ts on tp.supplier_id=ts.id
+	       <if test="shortName!=null and shortName!=''">
+	      	and	ts.short_name = #{shortName}
+	      </if>
+	       group by tp.category_id,tpc.name,tpc.parent_id
+	     ) c
+	       inner join t_product_category tpca on c.parent_id=tpca.product_category_id
+	    group by tpca.name,c.name 
+	    order by tpca.name 
+	</select>
+	<!-- 一级分类商品的spu,sku总数 -->
+	<select id="getProductCateTotal" resultType="java.util.Map">
+		SELECT * FROM (
+			SELECT ROWNUM rw,p.*  FROM (
+			   select d.tname,sum(d.tpTotalNum) tpTotalNum,sum(tpdTotalNum) tpdTotalNum from(  
+		        select tpca.name tname,c.name pname,sum(c.tpTotalNum) tpTotalNum,sum(c.tpdTotalNum) tpdTotalNum from ( 
+			       select count(tp.product_id) tpTotalNum ,tp.category_id,tpc.name,tpc.parent_id,sum(tpdTotalNum) tpdTotalNum from (
+			         select tpd.product_id, count(distinct(tod.product_detail_id)) tpdTotalNum from t_order tor 
+			         inner join t_order_detail tod 
+			           on tor.order_no=tod.order_no
+			           AND tor.status in (0,1,2)
+		               <if test="startDate!=null and startDate!='' ">
+		                 AND tod.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd,hh24:mi:ss')
+		               </if>
+					  <if test="endDate!=null and endDate!='' ">
+		                  AND tod.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd,hh24:mi:ss')
+		               </if>
+			           and tor.is_delete=0
+			         inner join t_product_detail tpd on tpd.product_detail_id=tod.product_detail_id
+			         group by tpd.product_id
+			       ) a inner join t_product tp on tp.product_id=a.product_id
+			       inner join t_product_category tpc on tpc.product_category_id=tp.category_id
+			       inner join t_supplier ts on tp.supplier_id=ts.id
+			       <if test="shortName!=null and shortName!=''">
+			      	and	ts.short_name = #{shortName}
+			      </if>
+			       group by tp.category_id,tpc.name,tpc.parent_id
+			     ) c
+			       inner join t_product_category tpca on c.parent_id=tpca.product_category_id
+			    group by tpca.name,c.name 
+			    order by tpca.name 
+		       ) d group by d.tname
+		       order by d.tname
+		  )p)m
+		where 1=1
+		and m.rw &gt; (#{currentPage}-1)*#{pageSize}
+		and m.rw &lt;= (#{pageSize}*#{currentPage})
+	</select>
+	
+	<!-- 获取所有的供应商 -->
+	<select id="getSupplier" resultType="java.util.Map">
+		select id,short_name from t_supplier
+	</select>
+	<!-- 获取产品总的销量 -->
+	<select id="getProductTotalNum" resultType="double">
+		select  nvl(sum(total_num),0)  from (
+		select a.total_num,p.name,(a.single_points * total_num) AS sal_vol  from (
+		      SELECT o.product_name,o.product_detail_id,SUM(buy_num)  AS total_num,
+		      o.single_points
+		      FROM t_order_detail o ,t_order d 
+		      WHERE o.order_no = d.order_no
+		      AND d.status in (0,1,2) 
+		      <if test="startDate!=null and startDate!='' ">
+		      	AND o.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd,hh24:mi:ss') 
+		      </if>
+		      <if test="endDate!=null and endDate!='' ">
+		      	 AND o.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd,hh24:mi:ss')
+		      </if>
+		      GROUP BY o.product_name,o.product_detail_id, o.single_points
+		      ORDER BY 3  DESC
+		    )  a
+		 inner JOIN t_product_detail  b ON a.product_detail_id = b.product_detail_id
+		 inner JOIN t_product d ON b.product_id =d.product_id
+		 inner join t_supplier ts on d.supplier_id=ts.id 
+	       <if test="shortName!=null and shortName!=''">
+	      	and	ts.short_name = #{shortName}
+	      </if>
+		 inner JOIN t_product_category p ON d.category_id = p.product_category_id
+		)
+	</select>
+	
+	<!-- 获取产品总的销售额 -->
+	<select id="getProductTotalSal" resultType="double">
+		select  nvl(SUM(sal_vol),0) from (
+		select a.total_num,p.name,(a.single_points * total_num) AS sal_vol  from (
+		      SELECT o.product_name,o.product_detail_id,SUM(buy_num)  AS total_num,
+		      o.single_points
+		      FROM t_order_detail o ,t_order d 
+		      WHERE o.order_no = d.order_no
+		      AND d.status in (0,1,2)
+		      <if test="startDate!=null and startDate!='' ">
+		      	AND o.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd,hh24:mi:ss') 
+		      </if>
+		      <if test="endDate!=null and endDate!='' ">
+		      	 AND o.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd,hh24:mi:ss')
+		      </if>
+		      GROUP BY o.product_name,o.product_detail_id, o.single_points
+		      ORDER BY 3  DESC
+		    )  a
+		 inner JOIN t_product_detail  b ON a.product_detail_id = b.product_detail_id
+		 inner JOIN t_product d ON b.product_id =d.product_id
+		 inner join t_supplier ts on d.supplier_id=ts.id 
+	       <if test="shortName!=null and shortName!=''">
+	      	and	ts.short_name = #{shortName}
+	      </if>
+		 inner JOIN t_product_category p ON d.category_id = p.product_category_id
+		)
+	</select>
+	<!-- 获取一级分类商品的总数量 -->
+	<select id="getProductSalesCount" resultType="Integer">
+		SELECT COUNT(*) FROM (
+			SELECT t.name,SUM(totalNum)  AS totalNum,sum(salVol) AS salVol FROM (
+					SELECT a.totalNum,n.name,(a.single_points * totalNum) AS salVol  FROM (
+					      SELECT o.product_name,o.product_detail_id,SUM(buy_num)  AS totalNum,
+					      o.single_points
+					      FROM t_order_detail o ,t_order d 
+					      WHERE o.order_no = d.order_no
+					      AND d.status in (0,1,2)
+					      <if test="startDate!=null and startDate!='' ">
+					      	AND o.create_time &gt;= to_date(#{startDate},'yyyy-mm-dd,hh24:mi:ss') 
+					      </if>
+					      <if test="endDate!=null and endDate!='' ">
+					      	 AND o.create_time &lt;= to_date(#{endDate},'yyyy-mm-dd,hh24:mi:ss')
+					      </if>
+				          GROUP BY o.product_name,o.product_detail_id, o.single_points
+				          ORDER BY 3  DESC
+				     ) a 
+					     inner JOIN t_product_detail  b ON a.product_detail_id = b.product_detail_id
+					     inner JOIN t_product d ON b.product_id =d.product_id
+					     inner join t_supplier ts on d.supplier_id=ts.id 
+					       <if test="shortName!=null and shortName!=''">
+					      	and	ts.short_name = #{shortName}
+					      </if>
+					     inner JOIN t_product_category p ON d.category_id = p.product_category_id
+					     inner JOIN t_product_category n ON n.product_category_id = p.parent_id
+					) t
+				GROUP BY t.name
+				ORDER BY 2 DESC
+		 )
+	</select>
+	<!-- 按时间点查询总条数 -->
+	<select id="getProductTimingSalesCount"  resultType="Integer">
+	SELECT COUNT(*) FROM (
+		 select tname,sum(tpTotalNum) tpTotalNum,sum(tpdTotalNum) tpdTotalNum from(
+				select tpca.name tname,c.name pname,sum(c.tpTotalNum) tpTotalNum,sum(c.tpdTotalNum) tpdTotalNum from ( 
+			       select count(tp.product_id) tpTotalNum ,tp.category_id,tpc.name,tpc.parent_id,sum(tpdTotalNum) tpdTotalNum from (
+			         select tpd.product_id, count(distinct(tod.product_detail_id)) tpdTotalNum from t_order tor 
+			         inner join t_order_detail tod 
+			           on tor.order_no=tod.order_no
+			           AND tor.status in (0,1,2)
+		              <if test="propDate!=null and propDate!='' ">
+	                   	AND tod.create_time &lt;= to_date(#{propDate},'yyyy-mm-dd,hh24:mi:ss')
+	                    </if>
+			           and tor.is_delete=0
+			         inner join t_product_detail tpd on tpd.product_detail_id=tod.product_detail_id
+			         group by tpd.product_id
+			       ) a inner join t_product tp on tp.product_id=a.product_id
+			       inner join t_product_category tpc on tpc.product_category_id=tp.category_id
+			       inner join t_supplier ts on tp.supplier_id=ts.id
+			       <if test="shortName!=null and shortName!=''">
+			      	and	ts.short_name = #{shortName}
+			      </if>
+			       group by tp.category_id,tpc.name,tpc.parent_id
+			     ) c
+			       inner join t_product_category tpca on c.parent_id=tpca.product_category_id
+			    group by tpca.name,c.name 
+			    order by tpca.name 
+			   ) group by tname order by tname
+		 )
+	</select>
+	<!-- 按时间点查询一级分类  二级分类的spu  SKU -->
+	<select id="getProductTimingCateList" resultType="java.util.Map">
+		select tpca.name tname,c.name pname,sum(c.tpTotalNum) tpTotalNum,sum(c.tpdTotalNum) tpdTotalNum from ( 
+	       select count(tp.product_id) tpTotalNum ,tp.category_id,tpc.name,tpc.parent_id,sum(tpdTotalNum) tpdTotalNum from (
+	         select tpd.product_id, count(distinct(tod.product_detail_id)) tpdTotalNum from t_order tor 
+	         inner join t_order_detail tod 
+	           on tor.order_no=tod.order_no
+	           AND tor.status in (0,1,2)
+              <if test="propDate!=null and propDate!='' ">
+                  	AND tod.create_time &lt;= to_date(#{propDate},'yyyy-mm-dd,hh24:mi:ss')
+                   </if>
+	           and tor.is_delete=0
+	         inner join t_product_detail tpd on tpd.product_detail_id=tod.product_detail_id
+	         group by tpd.product_id
+	       ) a inner join t_product tp on tp.product_id=a.product_id
+	       inner join t_product_category tpc on tpc.product_category_id=tp.category_id
+	       inner join t_supplier ts on tp.supplier_id=ts.id
+	       <if test="shortName!=null and shortName!=''">
+	      	and	ts.short_name = #{shortName}
+	      </if>
+	       group by tp.category_id,tpc.name,tpc.parent_id
+	     ) c
+	       inner join t_product_category tpca on c.parent_id=tpca.product_category_id
+	    group by tpca.name,c.name 
+	    order by tpca.name 
+	</select>
+	<!-- 按一级分类查询  spu SKU -->
+	<select id="getProductTimingCateTotal" resultType="java.util.Map">
+	SELECT * FROM (
+			SELECT ROWNUM rw,p.*  FROM (
+			 select tname,sum(tpTotalNum) tpTotalNum,sum(tpdTotalNum) tpdTotalNum from(
+				select tpca.name tname,c.name pname,sum(c.tpTotalNum) tpTotalNum,sum(c.tpdTotalNum) tpdTotalNum from ( 
+			       select count(tp.product_id) tpTotalNum ,tp.category_id,tpc.name,tpc.parent_id,sum(tpdTotalNum) tpdTotalNum from (
+			         select tpd.product_id, count(distinct(tod.product_detail_id)) tpdTotalNum from t_order tor 
+			         inner join t_order_detail tod 
+			           on tor.order_no=tod.order_no
+			           AND tor.status in (0,1,2)
+		              <if test="propDate!=null and propDate!='' ">
+	                   	AND tod.create_time &lt;= to_date(#{propDate},'yyyy-mm-dd,hh24:mi:ss')
+	                    </if>
+			           and tor.is_delete=0
+			         inner join t_product_detail tpd on tpd.product_detail_id=tod.product_detail_id
+			         group by tpd.product_id
+			       ) a inner join t_product tp on tp.product_id=a.product_id
+			       inner join t_product_category tpc on tpc.product_category_id=tp.category_id
+			       inner join t_supplier ts on tp.supplier_id=ts.id
+			       <if test="shortName!=null and shortName!=''">
+			      	and	ts.short_name = #{shortName}
+			      </if>
+			       group by tp.category_id,tpc.name,tpc.parent_id
+			     ) c
+			       inner join t_product_category tpca on c.parent_id=tpca.product_category_id
+			    group by tpca.name,c.name 
+			    order by tpca.name 
+			   ) group by tname order by tname
+		  )p)m
+		where 1=1
+		and m.rw &gt; (#{currentPage}-1)*#{pageSize}
+		and m.rw &lt;= (#{pageSize}*#{currentPage})
+	</select>
+	<!-- 按时间点获取产品类别和销售额、销量 -->
+	<select id="getProductTimingSaleParams" resultType="java.util.Map">
+	SELECT * FROM (
+			SELECT ROWNUM rw,p.*  FROM (
+				 SELECT t.name,SUM(totalNum)  AS totalNum,nvl(sum(salVol),0) AS salVol FROM (
+					SELECT a.totalNum,n.name,(a.single_points * totalNum) AS salVol  FROM (
+					      SELECT o.product_name,o.product_detail_id,SUM(buy_num)  AS totalNum,
+					      o.single_points
+					      FROM t_order_detail o ,t_order d 
+					      WHERE o.order_no = d.order_no
+					      AND d.status in (0,1,2)
+					      <if test="propDate!=null and propDate!='' ">
+					      	AND o.create_time &lt;= to_date(#{propDate},'yyyy-mm-dd,hh24:mi:ss') 
+					      </if>
+				          GROUP BY o.product_name,o.product_detail_id, o.single_points
+				          ORDER BY 3  DESC
+				     ) a 
+					     inner JOIN t_product_detail  b ON a.product_detail_id = b.product_detail_id
+					     inner JOIN t_product d ON b.product_id =d.product_id
+					      inner join t_supplier ts on d.supplier_id=ts.id 
+					       <if test="shortName!=null and shortName!=''">
+					      	and	ts.short_name = #{shortName}
+					      </if>
+					     inner JOIN t_product_category p ON d.category_id = p.product_category_id
+					     inner JOIN t_product_category n ON n.product_category_id = p.parent_id
+					) t
+				GROUP BY t.name
+				ORDER BY t.name
+			)p)m
+			where 1=1
+       		and m.rw &gt; (#{currentPage}-1)*#{pageSize}
+       		and m.rw &lt;= (#{pageSize}*#{currentPage})
+	</select>
+	<!-- 按时间点获取产品总的销量 -->
+	<select id="getProductTimingTotalNum" resultType="double">
+	select  nvl(sum(total_num),0)  from (
+		select a.total_num,p.name,(a.single_points * total_num) AS sal_vol  from (
+		      SELECT o.product_name,o.product_detail_id,SUM(buy_num)  AS total_num,
+		      o.single_points
+		      FROM t_order_detail o ,t_order d 
+		      WHERE o.order_no = d.order_no
+		      AND d.status in (0,1,2) 
+		      <if test="propDate!=null and propDate!='' ">
+		      	 AND o.create_time &lt;= to_date(#{propDate},'yyyy-mm-dd,hh24:mi:ss')
+		      </if>
+		      GROUP BY o.product_name,o.product_detail_id, o.single_points
+		      ORDER BY 3  DESC
+		    )  a
+		 inner JOIN t_product_detail  b ON a.product_detail_id = b.product_detail_id
+		 inner JOIN t_product d ON b.product_id =d.product_id
+		 inner join t_supplier ts on d.supplier_id=ts.id 
+	       <if test="shortName!=null and shortName!=''">
+	      	and	ts.short_name = #{shortName}
+	      </if>
+		 inner JOIN t_product_category p ON d.category_id = p.product_category_id
+		)
+	</select>
+	<!-- 按时间点获取产品总的销售额 -->
+	<select id="getProductTimingTotalSal" resultType="double">
+	select  nvl(SUM(sal_vol),0) from (
+		select a.total_num,p.name,(a.single_points * total_num) AS sal_vol  from (
+		      SELECT o.product_name,o.product_detail_id,SUM(buy_num)  AS total_num,
+		      o.single_points
+		      FROM t_order_detail o ,t_order d 
+		      WHERE o.order_no = d.order_no
+		      AND d.status in (0,1,2)
+		      <if test="propDate!=null and propDate!='' ">
+		      	 AND o.create_time &lt;= to_date(#{propDate},'yyyy-mm-dd,hh24:mi:ss')
+		      </if>
+		      GROUP BY o.product_name,o.product_detail_id, o.single_points
+		      ORDER BY 3  DESC
+		    )  a
+		 inner JOIN t_product_detail  b ON a.product_detail_id = b.product_detail_id
+		 inner JOIN t_product d ON b.product_id =d.product_id
+		 inner join t_supplier ts on d.supplier_id=ts.id 
+	       <if test="shortName!=null and shortName!=''">
+	      	and	ts.short_name = #{shortName}
+	      </if>
+		 inner JOIN t_product_category p ON d.category_id = p.product_category_id
+		)
+	</select>
+	
+	<select id="productTotalList" resultType="com.zhb.dataAnalysis.common.repository.database.model.OrderModel">
+		select count(ord.order_no) orderNum,extract(month from ord.create_time) orderMonth 
+	     from t_order ord
+	     where extract(year from ord.create_time) = #{productYear} 
+	     and ord.status in (0,1,2)
+	     group by extract(month from ord.create_time) 
+	     order by extract(month from ord.create_time)
+	</select>
+	
+	<select id="productTotalSaleList" resultType="com.zhb.dataAnalysis.common.repository.database.model.OrderModel">
+		select round(nvl(sum((de.single_points / de.exchange_rate)*de.buy_num),0),2) orderSumIntegral,sum(de.buy_num) sumNum ,extract(month from ord.create_time) orderMonth 
+	     from t_order ord,t_order_detail de,t_user_info u
+	     where ord.order_no = de.order_no and ord.user_id=u.id
+	     and extract(year from ord.create_time) = #{productYear}  
+	     and ord.status in (0,1,2) 
+	     group by extract(month from ord.create_time) 
+	     order by extract(month from ord.create_time)
+	</select>
+</mapper>
